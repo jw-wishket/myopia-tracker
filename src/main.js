@@ -1,40 +1,76 @@
 import './style.css';
 import { registerRoute, startRouter, navigate } from './router.js';
 import { getCurrentUser } from './data/dataService.js';
-import { setState } from './state.js';
+import { getState, setState } from './state.js';
 
-registerRoute('login', (container) => {
+import { renderLoginScreen } from './screens/loginScreen.js';
+import { renderDoctorScreen } from './screens/doctorScreen.js';
+import { renderCustomerScreen } from './screens/customerScreen.js';
+import { renderAdminScreen } from './screens/adminScreen.js';
+import { renderRegisterScreen } from './screens/registerScreen.js';
+import { renderPendingScreen } from './screens/pendingScreen.js';
+
+import { renderNavbar } from './components/navbar.js';
+import { renderStatsCard } from './components/statsCard.js';
+import { renderTreatmentTags } from './components/treatmentTags.js';
+import { renderMeasurementTable } from './components/measurementTable.js';
+import { renderPatientInfoBar } from './components/patientInfoBar.js';
+import { renderGrowthChart, initGrowthChart, destroyChart } from './components/growthChart.js';
+
+// Public routes
+registerRoute('login', renderLoginScreen);
+registerRoute('register', renderRegisterScreen);
+registerRoute('pending', renderPendingScreen);
+
+// Auth-guarded routes
+function authGuard(renderFn) {
+  return (container) => {
+    if (!getState().currentUser) {
+      navigate('login');
+      return;
+    }
+    return renderFn(container);
+  };
+}
+
+registerRoute('doctor', authGuard(renderDoctorScreen));
+registerRoute('customer', authGuard(renderCustomerScreen));
+registerRoute('admin', authGuard(renderAdminScreen));
+
+// Patient search result (no auth needed)
+registerRoute('patient-result', (container) => {
+  const patient = getState().currentPatient;
+  if (!patient) { navigate('login'); return; }
+  const nav = renderNavbar({ title: '근시관리 트래커', subtitle: '환자 기록 조회', showBack: true, backTarget: 'login' });
   container.innerHTML = `
-    <div class="flex items-center justify-center min-h-screen">
-      <div class="text-center">
-        <h1 class="text-2xl font-semibold text-slate-800 mb-4">근시관리 트래커</h1>
-        <p class="text-slate-500 mb-6">Myopia Management Tracker</p>
-        <div class="space-y-3">
-          <button class="demo-login w-48 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors" data-role="doctor">의사로 체험</button><br>
-          <button class="demo-login w-48 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors" data-role="customer">보호자로 체험</button><br>
-          <button class="demo-login w-48 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors" data-role="admin">관리자로 체험</button>
-        </div>
+    ${nav.html}
+    <main class="max-w-4xl mx-auto p-4 sm:p-6 space-y-5">
+      ${renderPatientInfoBar(patient)}
+      <div class="bg-white rounded-2xl border border-slate-200 p-5">
+        <h3 class="text-sm font-semibold text-slate-800 mb-4">현재 상태</h3>
+        ${renderStatsCard(patient)}
       </div>
-    </div>
+      <div class="bg-white rounded-2xl border border-slate-200 p-5">
+        <h3 class="text-sm font-semibold text-slate-800 mb-4">치료 기록</h3>
+        ${renderTreatmentTags(patient.treatments)}
+      </div>
+      <div class="bg-white rounded-2xl border border-slate-200 p-5">
+        <h3 class="text-sm font-semibold text-slate-800 mb-4">성장 차트</h3>
+        ${renderGrowthChart('searchResultChart', patient)}
+      </div>
+      <div class="bg-white rounded-2xl border border-slate-200 p-5">
+        <h3 class="text-sm font-semibold text-slate-800 mb-4">측정 기록</h3>
+        ${renderMeasurementTable(patient.records)}
+      </div>
+      <p class="text-center text-xs text-slate-400">더 자세한 기록 관리를 원하시면 회원가입 후 이용해주세요.</p>
+    </main>
   `;
-  container.querySelectorAll('.demo-login').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const role = btn.dataset.role;
-      import('./data/dataService.js').then(ds => {
-        const user = ds.login(role);
-        setState({ currentUser: user });
-        navigate(role === 'admin' ? 'admin' : role === 'customer' ? 'customer' : 'doctor');
-      });
-    });
-  });
+  nav.bind(container);
+  initGrowthChart('searchResultChart', patient);
+  return () => destroyChart('searchResultChart');
 });
 
-['doctor', 'customer', 'admin', 'register', 'patient-result', 'pending'].forEach(route => {
-  registerRoute(route, (container) => {
-    container.innerHTML = `<div class="flex items-center justify-center min-h-screen"><p class="text-slate-400">${route} screen - coming soon</p></div>`;
-  });
-});
-
+// Restore session
 const user = getCurrentUser();
 if (user) {
   setState({ currentUser: user });
