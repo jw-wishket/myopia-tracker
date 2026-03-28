@@ -9,10 +9,11 @@ import { renderGrowthChart, initGrowthChart, destroyChart } from '../components/
 import { renderProgressChart, initProgressChart, destroyProgressChart } from '../components/progressChart.js';
 import { openModal } from '../components/modal.js';
 import { getState, setState } from '../state.js';
-import { getPatients, searchPatients, getPatientById, addPatient, addMeasurement, deleteRecord, addTreatment, removeTreatment, deletePatient, updatePatient } from '../data/dataService.js';
+import { getPatients, searchPatients, getPatientById, addPatient, addMeasurement, deleteRecord, addTreatment, removeTreatment, deletePatient, updatePatient, logout, resetData } from '../data/dataService.js';
 import { todayStr, calcAge, progressLabel } from '../utils.js';
 
 let currentSearchQuery = '';
+let measurementFilter = 'all';
 
 let isLoadingPatients = false;
 
@@ -133,7 +134,13 @@ function renderPatientContent(patient, patients) {
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <div class="bg-white rounded-2xl border border-slate-200 p-5">
-          <h3 class="text-sm font-semibold text-slate-800 mb-4">성장 차트</h3>
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-sm font-semibold text-slate-800">성장 차트</h3>
+            <button id="saveGrowthChartBtn" class="px-3 py-1.5 text-xs font-medium text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50 hover:text-primary-600 transition-colors flex items-center gap-1">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+              이미지 저장
+            </button>
+          </div>
           ${renderGrowthChart('growthChart', patient)}
         </div>
         <div class="bg-white rounded-2xl border border-slate-200 p-5">
@@ -145,11 +152,24 @@ function renderPatientContent(patient, patients) {
       <div class="bg-white rounded-2xl border border-slate-200 p-5">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-sm font-semibold text-slate-800">측정 기록</h3>
+          <div class="flex gap-1.5">
+            <button class="measurement-filter-btn px-3 py-1 rounded-full text-xs font-medium ${measurementFilter === 'all' ? 'bg-primary-600 text-white' : 'text-slate-500 border border-slate-200 hover:bg-slate-50'}" data-filter="all">전체</button>
+            <button class="measurement-filter-btn px-3 py-1 rounded-full text-xs font-medium ${measurementFilter === '1year' ? 'bg-primary-600 text-white' : 'text-slate-500 border border-slate-200 hover:bg-slate-50'}" data-filter="1year">최근 1년</button>
+            <button class="measurement-filter-btn px-3 py-1 rounded-full text-xs font-medium ${measurementFilter === '6months' ? 'bg-primary-600 text-white' : 'text-slate-500 border border-slate-200 hover:bg-slate-50'}" data-filter="6months">최근 6개월</button>
+          </div>
         </div>
-        ${renderMeasurementTable(patient.records, { editable: true })}
+        ${renderMeasurementTable(filterRecords(patient.records), { editable: true })}
       </div>
     </div>
   `;
+}
+
+function filterRecords(records) {
+  if (!records || measurementFilter === 'all') return records;
+  const now = new Date();
+  const months = measurementFilter === '1year' ? 12 : 6;
+  const cutoff = new Date(now.getFullYear(), now.getMonth() - months, now.getDate());
+  return records.filter(r => new Date(r.date) >= cutoff);
 }
 
 function bindDoctorEvents(container, user, patients, selectedPatient) {
@@ -283,6 +303,44 @@ function bindDoctorEvents(container, user, patients, selectedPatient) {
   if (editPatientBtn && selectedPatient) {
     editPatientBtn.addEventListener('click', () => openEditPatientModal(container, selectedPatient));
   }
+
+  // Bottom nav tab actions
+  container.querySelectorAll('.bottom-nav-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tab = btn.dataset.tab;
+      if (tab === 'patients') {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else if (tab === 'chart') {
+        const chartEl = container.querySelector('#growthChart');
+        if (chartEl) chartEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else if (tab === 'add') {
+        if (selectedPatient) openAddMeasurementModal(container, selectedPatient);
+      } else if (tab === 'settings') {
+        openSettingsModal(container);
+      }
+    });
+  });
+
+  // Save growth chart as image
+  const saveChartBtn = container.querySelector('#saveGrowthChartBtn');
+  if (saveChartBtn && selectedPatient) {
+    saveChartBtn.addEventListener('click', () => {
+      const canvas = document.getElementById('growthChart');
+      if (!canvas) return;
+      const link = document.createElement('a');
+      link.href = canvas.toDataURL('image/png');
+      link.download = `${selectedPatient.name}_성장차트.png`;
+      link.click();
+    });
+  }
+
+  // Measurement date filter
+  container.querySelectorAll('.measurement-filter-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      measurementFilter = btn.dataset.filter;
+      await renderDoctorScreen(container);
+    });
+  });
 }
 
 function openAddPatientModal(container, user) {
@@ -433,4 +491,38 @@ function exportCSV(patient) {
   link.href = URL.createObjectURL(blob);
   link.download = `${patient.name}_measurements.csv`;
   link.click();
+}
+
+function openSettingsModal(container) {
+  const modal = openModal('설정', `
+    <div class="space-y-4">
+      <div class="p-4 bg-slate-50 rounded-xl">
+        <h4 class="text-sm font-semibold text-slate-700 mb-1">계정</h4>
+        <p class="text-xs text-slate-500 mb-3">현재 로그인된 계정에서 로그아웃합니다.</p>
+        <button id="settingsLogoutBtn" class="w-full py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-white transition-colors">로그아웃</button>
+      </div>
+      <div class="p-4 bg-red-50 rounded-xl">
+        <h4 class="text-sm font-semibold text-red-700 mb-1">데이터 초기화</h4>
+        <p class="text-xs text-red-500 mb-3">모든 데이터를 초기 상태로 되돌립니다. 이 작업은 되돌릴 수 없습니다.</p>
+        <button id="settingsResetBtn" class="w-full py-2.5 border border-red-200 rounded-xl text-sm font-medium text-red-600 hover:bg-white transition-colors">데이터 초기화</button>
+      </div>
+      <button id="settingsCloseBtn" class="w-full py-2.5 bg-slate-100 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-200 transition-colors">닫기</button>
+    </div>
+  `);
+
+  modal.element.querySelector('#settingsCloseBtn').addEventListener('click', modal.close);
+  modal.element.querySelector('#settingsLogoutBtn').addEventListener('click', async () => {
+    await logout();
+    setState({ currentUser: null, currentPatient: null });
+    modal.close();
+    window.location.hash = '#login';
+  });
+  modal.element.querySelector('#settingsResetBtn').addEventListener('click', async () => {
+    if (confirm('정말 모든 데이터를 초기화하시겠습니까?')) {
+      await resetData();
+      setState({ currentUser: null, currentPatient: null });
+      modal.close();
+      window.location.hash = '#login';
+    }
+  });
 }

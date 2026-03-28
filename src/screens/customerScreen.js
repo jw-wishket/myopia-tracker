@@ -59,6 +59,19 @@ export async function renderCustomerScreen(container) {
     });
   });
 
+  // Save growth chart as image
+  const saveChartBtn = container.querySelector('.save-customer-chart-btn');
+  if (saveChartBtn) {
+    saveChartBtn.addEventListener('click', () => {
+      const canvas = document.getElementById('customerGrowthChart');
+      if (!canvas) return;
+      const link = document.createElement('a');
+      link.href = canvas.toDataURL('image/png');
+      link.download = `${saveChartBtn.dataset.patientName}_성장차트.png`;
+      link.click();
+    });
+  }
+
   if (selectedPatient) {
     requestAnimationFrame(() => {
       initGrowthChart('customerGrowthChart', selectedPatient);
@@ -88,7 +101,13 @@ function renderChildDetail(patient) {
     </div>
 
     <div class="bg-white rounded-2xl border border-slate-200 p-5">
-      <h3 class="text-sm font-semibold text-slate-800 mb-4">성장 추이</h3>
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-semibold text-slate-800">성장 추이</h3>
+        <button class="save-customer-chart-btn px-3 py-1.5 text-xs font-medium text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50 hover:text-primary-600 transition-colors flex items-center gap-1" data-patient-name="${patient.name}">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          이미지 저장
+        </button>
+      </div>
       ${renderGrowthChart('customerGrowthChart', patient)}
     </div>
 
