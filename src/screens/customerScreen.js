@@ -8,7 +8,7 @@ import { renderGrowthChart, initGrowthChart, destroyChart } from '../components/
 import { renderProgressReport } from '../components/progressReport.js';
 import { openModal } from '../components/modal.js';
 import { getState, setState } from '../state.js';
-import { getPatients, getPatientById, logout, changePassword } from '../data/dataService.js';
+import { getPatients, getPatientById, logout, changePassword, updateProfile } from '../data/dataService.js';
 import { progressLabel } from '../utils.js';
 
 export async function renderCustomerScreen(container) {
@@ -28,7 +28,10 @@ export async function renderCustomerScreen(container) {
     ${nav.html}
     <main class="max-w-4xl mx-auto p-4 sm:p-6 space-y-5 has-bottom-nav">
       <div>
-        <h2 class="text-sm font-semibold text-slate-800 mb-3">내 자녀</h2>
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold text-slate-800">내 자녀</h2>
+          <button id="manageChildrenBtn" class="px-3 py-1.5 text-xs font-medium text-primary-600 border border-primary-200 rounded-lg hover:bg-primary-50 transition-colors">자녀 관리</button>
+        </div>
         <div class="flex gap-3 overflow-x-auto pb-2">
           ${matchedPatients.map(p => `
             <button class="child-select flex-shrink-0 flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-colors ${p.id === selectedPatient?.id ? 'border-primary-500 bg-primary-50' : 'border-slate-200 hover:border-slate-300'}" data-id="${p.id}">
@@ -49,6 +52,12 @@ export async function renderCustomerScreen(container) {
   `;
 
   nav.bind(container);
+
+  // Manage children button
+  const manageBtn = container.querySelector('#manageChildrenBtn');
+  if (manageBtn) {
+    manageBtn.addEventListener('click', () => openChildrenManagementModal(container, user, children));
+  }
 
   // Child selection
   container.querySelectorAll('.child-select').forEach(btn => {
@@ -139,6 +148,117 @@ function renderChildDetail(patient) {
       <p class="text-xs text-slate-400 mt-3 text-center">측정 데이터는 담당 안과에서 입력합니다</p>
     </div>
   `;
+}
+
+function openChildrenManagementModal(container, user, children) {
+  const childrenCopy = children.map(c => ({ ...c }));
+
+  function renderChildrenList() {
+    return childrenCopy.map((c, i) => `
+      <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+        <div>
+          <div class="text-sm font-medium text-slate-800">${c.name}</div>
+          <div class="text-xs text-slate-500">${c.birthDate}</div>
+        </div>
+        <div class="flex gap-2">
+          <button class="child-edit-btn px-2 py-1 text-xs text-primary-600 border border-primary-200 rounded-lg hover:bg-primary-50" data-index="${i}">수정</button>
+          <button class="child-delete-btn px-2 py-1 text-xs text-red-500 border border-red-200 rounded-lg hover:bg-red-50" data-index="${i}">삭제</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  const modal = openModal('자녀 관리', `
+    <div class="space-y-4">
+      <div id="childrenListArea" class="space-y-2">
+        ${childrenCopy.length > 0 ? renderChildrenList() : '<p class="text-sm text-slate-400 text-center py-2">등록된 자녀가 없습니다</p>'}
+      </div>
+      <div class="border-t border-slate-200 pt-4">
+        <h4 class="text-sm font-semibold text-slate-700 mb-2">자녀 추가</h4>
+        <div class="space-y-2">
+          <input type="text" id="newChildName" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-primary-400" placeholder="이름">
+          <input type="date" id="newChildBirth" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-primary-400">
+          <button id="addChildBtn" class="w-full py-2.5 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 transition-colors">추가</button>
+        </div>
+      </div>
+      <div id="childMgmtMsg" class="text-xs hidden text-center"></div>
+      <button id="childMgmtCloseBtn" class="w-full py-2.5 bg-slate-100 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-200 transition-colors">닫기</button>
+    </div>
+  `);
+
+  function rebindChildEvents() {
+    const listArea = modal.element.querySelector('#childrenListArea');
+    listArea.innerHTML = childrenCopy.length > 0 ? renderChildrenList() : '<p class="text-sm text-slate-400 text-center py-2">등록된 자녀가 없습니다</p>';
+
+    listArea.querySelectorAll('.child-delete-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const idx = parseInt(btn.dataset.index);
+        childrenCopy.splice(idx, 1);
+        const ok = await updateProfile({ children: childrenCopy });
+        if (ok) {
+          const updatedUser = { ...getState().currentUser, children: [...childrenCopy] };
+          setState({ currentUser: updatedUser, currentPatient: null });
+          rebindChildEvents();
+        }
+      });
+    });
+
+    listArea.querySelectorAll('.child-edit-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.dataset.index);
+        const child = childrenCopy[idx];
+        const name = prompt('이름:', child.name);
+        const birthDate = prompt('생년월일 (YYYY-MM-DD):', child.birthDate);
+        if (name && birthDate) {
+          childrenCopy[idx] = { name: name.trim(), birthDate };
+          updateProfile({ children: childrenCopy }).then(ok => {
+            if (ok) {
+              const updatedUser = { ...getState().currentUser, children: [...childrenCopy] };
+              setState({ currentUser: updatedUser, currentPatient: null });
+              rebindChildEvents();
+            }
+          });
+        }
+      });
+    });
+  }
+
+  rebindChildEvents();
+
+  modal.element.querySelector('#addChildBtn').addEventListener('click', async () => {
+    const nameInput = modal.element.querySelector('#newChildName');
+    const birthInput = modal.element.querySelector('#newChildBirth');
+    const name = nameInput.value.trim();
+    const birthDate = birthInput.value;
+    const msgEl = modal.element.querySelector('#childMgmtMsg');
+
+    if (!name || !birthDate) {
+      msgEl.textContent = '이름과 생년월일을 모두 입력하세요.';
+      msgEl.className = 'text-xs text-center text-red-500';
+      return;
+    }
+
+    childrenCopy.push({ name, birthDate });
+    const ok = await updateProfile({ children: childrenCopy });
+    if (ok) {
+      const updatedUser = { ...getState().currentUser, children: [...childrenCopy] };
+      setState({ currentUser: updatedUser, currentPatient: null });
+      nameInput.value = '';
+      birthInput.value = '';
+      msgEl.textContent = '추가 완료';
+      msgEl.className = 'text-xs text-center text-emerald-600';
+      rebindChildEvents();
+    } else {
+      childrenCopy.pop();
+      msgEl.textContent = '저장 실패';
+      msgEl.className = 'text-xs text-center text-red-500';
+    }
+  });
+
+  modal.element.querySelector('#childMgmtCloseBtn').addEventListener('click', () => {
+    modal.close();
+    renderCustomerScreen(container);
+  });
 }
 
 function openCustomerSettingsModal(container) {

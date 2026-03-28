@@ -79,4 +79,5 @@ registerRoute('patient-result', (container) => {
     window.location.hash = route;
   }
   startRouter(document.getElementById('app'));
+  document.getElementById('loadingOverlay')?.classList.add('hidden');
 })();

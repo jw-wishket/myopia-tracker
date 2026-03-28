@@ -14,6 +14,7 @@ import { getState, setState } from '../state.js';
 import { getPatients, searchPatients, getPatientById, addPatient, addMeasurement, deleteRecord, addTreatment, removeTreatment, deletePatient, updatePatient, logout, resetData, changePassword, getNotes, addNote, deleteNote, importMeasurements } from '../data/dataService.js';
 import { renderPatientNotes } from '../components/patientNotes.js';
 import { todayStr, calcAge, progressLabel } from '../utils.js';
+import { showSyncStatus } from '../components/syncStatus.js';
 
 let currentSearchQuery = '';
 let measurementFilter = 'all';
@@ -263,7 +264,9 @@ function bindDoctorEvents(container, user, patients, selectedPatient) {
       if (type && date) {
         treatmentConfirm.disabled = true;
         treatmentConfirm.textContent = '추가 중...';
+        showSyncStatus('syncing', '저장 중...');
         await addTreatment(selectedPatient.id, { type, date });
+        showSyncStatus('synced', '저장 완료');
         setState({ currentPatient: await getPatientById(selectedPatient.id) });
         await renderDoctorScreen(container);
       }
@@ -287,7 +290,9 @@ function bindDoctorEvents(container, user, patients, selectedPatient) {
       if (selectedPatient && confirm('이 측정 기록을 삭제하시겠습니까?')) {
         btn.disabled = true;
         btn.classList.add('opacity-50', 'pointer-events-none');
+        showSyncStatus('syncing', '삭제 중...');
         await deleteRecord(selectedPatient.id, btn.dataset.id);
+        showSyncStatus('synced', '삭제 완료');
         setState({ currentPatient: await getPatientById(selectedPatient.id) });
         await renderDoctorScreen(container);
       }
@@ -445,7 +450,13 @@ function openAddPatientModal(container, user) {
     const gender = modal.element.querySelector('input[name="gender"]:checked').value;
     const regNo = modal.element.querySelector('#newPatientRegNo').value.trim();
     if (!name || !birthDate) return;
+    showSyncStatus('syncing', '등록 중...');
     const newPatient = await addPatient({ name, birthDate, gender, regNo, clinicId: user.clinicId });
+    if (newPatient) {
+      showSyncStatus('synced', '등록 완료');
+    } else {
+      showSyncStatus('error', '저장 실패');
+    }
     setState({ currentPatient: newPatient });
     modal.close();
     await renderDoctorScreen(container);
@@ -536,8 +547,14 @@ function openAddMeasurementModal(container, patient) {
     const btn = modal.element.querySelector('#confirmMeasurement');
     btn.disabled = true;
     btn.textContent = '저장 중...';
+    showSyncStatus('syncing', '저장 중...');
 
-    await addMeasurement(patient.id, { date, odAL, osAL, odSE: isNaN(odSE) ? null : odSE, osSE: isNaN(osSE) ? null : osSE });
+    const result = await addMeasurement(patient.id, { date, odAL, osAL, odSE: isNaN(odSE) ? null : odSE, osSE: isNaN(osSE) ? null : osSE });
+    if (result) {
+      showSyncStatus('synced', '저장 완료');
+    } else {
+      showSyncStatus('error', '저장 실패');
+    }
     setState({ currentPatient: await getPatientById(patient.id) });
     modal.close();
     await renderDoctorScreen(container);

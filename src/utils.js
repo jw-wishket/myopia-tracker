@@ -60,6 +60,13 @@ export function pctBadgeClass(pct) {
   return 'bg-red-50 text-red-700';
 }
 
+export function showLoading() {
+  document.getElementById('loadingOverlay')?.classList.remove('hidden');
+}
+export function hideLoading() {
+  document.getElementById('loadingOverlay')?.classList.add('hidden');
+}
+
 export function progressLabel(records) {
   if (!records || records.length < 2) return { text: '데이터 부족', cls: 'text-slate-400' };
   const last = records[records.length - 1];

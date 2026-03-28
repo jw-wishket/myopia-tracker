@@ -308,6 +308,19 @@ export async function revokeDoctor(doctorId) {
   return true;
 }
 
+export async function updateProfile(updates) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return false;
+  const dbUpdates = {};
+  if (updates.children !== undefined) dbUpdates.children = updates.children;
+  if (updates.name !== undefined) dbUpdates.name = updates.name;
+  if (updates.clinicId !== undefined) { dbUpdates.clinic_id = updates.clinicId; }
+  if (updates.clinicName !== undefined) { dbUpdates.clinic_name = updates.clinicName; }
+  const { error } = await supabase.from('profiles').update(dbUpdates).eq('id', user.id);
+  if (error) { console.error('updateProfile error:', error); return false; }
+  return true;
+}
+
 export async function changePassword(newPassword) {
   const { error } = await supabase.auth.updateUser({ password: newPassword });
   if (error) throw error;
