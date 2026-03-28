@@ -1,6 +1,7 @@
 import { renderNavbar } from '../components/navbar.js';
 import { navigate } from '../router.js';
-import { getClinics } from '../data/dataService.js';
+import { getClinics, registerWithEmail } from '../data/dataService.js';
+import { pendingRegistration } from './loginScreen.js';
 
 let step = 1;
 let selectedRole = 'customer';
@@ -86,6 +87,7 @@ function renderStep3() {
     <div class="bg-white rounded-2xl border border-slate-200 p-6">
       <h3 class="text-lg font-semibold text-slate-800 mb-2">${selectedRole === 'customer' ? '자녀 등록' : '의사 정보'}</h3>
       ${selectedRole === 'customer' ? renderChildrenForm() : renderDoctorForm()}
+      <div id="regCompleteError" class="hidden text-sm text-red-500 text-center mt-3"></div>
       <div class="flex gap-3 mt-5">
         <button id="regBack3" class="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-600">이전</button>
         <button id="regComplete" class="flex-1 py-2.5 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700">가입 완료</button>
@@ -131,10 +133,54 @@ function bindRegisterEvents(container) {
   container.querySelector('#regBack2')?.addEventListener('click', async () => { step = 1; await renderRegisterScreen(container); });
   container.querySelector('#regNext2')?.addEventListener('click', async () => { if (selectedClinic) { step = 3; await renderRegisterScreen(container); } });
   container.querySelector('#regBack3')?.addEventListener('click', async () => { step = 2; await renderRegisterScreen(container); });
-  container.querySelector('#regComplete')?.addEventListener('click', () => {
-    if (selectedRole === 'doctor') { navigate('pending'); }
-    else { navigate('login'); }
-    step = 1; selectedClinic = null; children = [];
+  container.querySelector('#regComplete')?.addEventListener('click', async () => {
+    const errEl = container.querySelector('#regCompleteError');
+    if (errEl) errEl.classList.add('hidden');
+
+    if (!pendingRegistration.email || !pendingRegistration.password) {
+      if (errEl) {
+        errEl.textContent = '회원가입 정보가 없습니다. 처음부터 다시 시도해주세요.';
+        errEl.classList.remove('hidden');
+      }
+      return;
+    }
+
+    try {
+      if (selectedRole === 'doctor') {
+        const doctorName = container.querySelector('#doctorNameInput')?.value?.trim() || '';
+        if (!doctorName) {
+          if (errEl) {
+            errEl.textContent = '의사 이름을 입력해주세요';
+            errEl.classList.remove('hidden');
+          }
+          return;
+        }
+        await registerWithEmail(pendingRegistration.email, pendingRegistration.password, {
+          name: doctorName,
+          role: 'doctor',
+          clinicId: selectedClinic?.id || null,
+          clinicName: selectedClinic?.name || null,
+        });
+        step = 1; selectedClinic = null; children = [];
+        navigate('pending');
+      } else {
+        const userName = children[0]?.name || 'User';
+        await registerWithEmail(pendingRegistration.email, pendingRegistration.password, {
+          name: userName,
+          role: 'customer',
+          clinicId: selectedClinic?.id || null,
+          clinicName: selectedClinic?.name || null,
+          children: children,
+        });
+        step = 1; selectedClinic = null; children = [];
+        navigate('login');
+      }
+    } catch (err) {
+      if (errEl) {
+        errEl.textContent = err.message || '회원가입에 실패했습니다';
+        errEl.classList.remove('hidden');
+      }
+    }
   });
   container.querySelectorAll('.clinic-item').forEach(item => {
     item.addEventListener('click', async () => {

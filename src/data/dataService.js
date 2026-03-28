@@ -65,12 +65,6 @@ export async function registerWithEmail(email, password, metadata = {}) {
   return data;
 }
 
-export async function loginWithGoogle() {
-  const { data, error } = await supabase.auth.signInWithOAuth({ provider: 'google' });
-  if (error) throw error;
-  return data;
-}
-
 export async function logout() {
   await supabase.auth.signOut();
 }

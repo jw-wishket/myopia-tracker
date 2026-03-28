@@ -1,7 +1,9 @@
 import { renderNavbar } from '../components/navbar.js';
-import { searchPatientByInfo } from '../data/dataService.js';
+import { searchPatientByInfo, loginWithEmail } from '../data/dataService.js';
 import { setState } from '../state.js';
 import { navigate } from '../router.js';
+
+export let pendingRegistration = { email: '', password: '' };
 
 export async function renderLoginScreen(container) {
   const nav = renderNavbar({ title: '근시관리 트래커' });
@@ -52,13 +54,14 @@ export async function renderLoginScreen(container) {
               <div class="space-y-4">
                 <div>
                   <label class="block text-sm font-medium text-slate-600 mb-1.5">이메일</label>
-                  <input type="email" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 transition" placeholder="email@example.com">
+                  <input type="email" id="loginEmail" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 transition" placeholder="email@example.com">
                 </div>
                 <div>
                   <label class="block text-sm font-medium text-slate-600 mb-1.5">비밀번호</label>
-                  <input type="password" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 transition" placeholder="••••••••">
+                  <input type="password" id="loginPassword" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 transition" placeholder="••••••••">
                 </div>
-                <button class="w-full py-2.5 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 transition-colors">로그인</button>
+                <div id="loginError" class="hidden text-sm text-red-500 text-center"></div>
+                <button id="loginBtn" class="w-full py-2.5 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 transition-colors">로그인</button>
                 <p class="text-center text-sm text-primary-600 cursor-pointer hover:underline">비밀번호 찾기</p>
               </div>
             </div>
@@ -68,17 +71,18 @@ export async function renderLoginScreen(container) {
               <div class="space-y-4">
                 <div>
                   <label class="block text-sm font-medium text-slate-600 mb-1.5">이메일</label>
-                  <input type="email" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 transition" placeholder="email@example.com">
+                  <input type="email" id="regEmail" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 transition" placeholder="email@example.com">
                 </div>
                 <div>
                   <label class="block text-sm font-medium text-slate-600 mb-1.5">비밀번호</label>
-                  <input type="password" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 transition" placeholder="8자 이상">
+                  <input type="password" id="regPassword" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 transition" placeholder="8자 이상">
                 </div>
                 <div>
                   <label class="block text-sm font-medium text-slate-600 mb-1.5">비밀번호 확인</label>
-                  <input type="password" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 transition" placeholder="••••••••">
+                  <input type="password" id="regPasswordConfirm" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 transition" placeholder="••••••••">
                 </div>
-                <button class="w-full py-2.5 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 transition-colors" onclick="location.hash='register'">회원가입</button>
+                <div id="regError" class="hidden text-sm text-red-500 text-center"></div>
+                <button id="regBtn" class="w-full py-2.5 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 transition-colors">회원가입</button>
               </div>
             </div>
           </div>
@@ -120,6 +124,54 @@ export async function renderLoginScreen(container) {
       errEl.textContent = '일치하는 환자를 찾을 수 없습니다';
       errEl.classList.remove('hidden');
     }
+  });
+
+  // Login button
+  container.querySelector('#loginBtn').addEventListener('click', async () => {
+    const email = container.querySelector('#loginEmail').value.trim();
+    const password = container.querySelector('#loginPassword').value;
+    const errEl = container.querySelector('#loginError');
+    errEl.classList.add('hidden');
+    if (!email || !password) {
+      errEl.textContent = '이메일과 비밀번호를 입력해주세요';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    try {
+      const user = await loginWithEmail(email, password);
+      setState({ currentUser: user });
+      const route = user.role === 'admin' ? 'admin' : user.role === 'customer' ? 'customer' : 'doctor';
+      navigate(route);
+    } catch (err) {
+      errEl.textContent = err.message || '로그인에 실패했습니다';
+      errEl.classList.remove('hidden');
+    }
+  });
+
+  // Register button
+  container.querySelector('#regBtn').addEventListener('click', () => {
+    const email = container.querySelector('#regEmail').value.trim();
+    const password = container.querySelector('#regPassword').value;
+    const passwordConfirm = container.querySelector('#regPasswordConfirm').value;
+    const errEl = container.querySelector('#regError');
+    errEl.classList.add('hidden');
+    if (!email || !password || !passwordConfirm) {
+      errEl.textContent = '모든 항목을 입력해주세요';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    if (password.length < 8) {
+      errEl.textContent = '비밀번호는 8자 이상이어야 합니다';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    if (password !== passwordConfirm) {
+      errEl.textContent = '비밀번호가 일치하지 않습니다';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    pendingRegistration = { email, password };
+    navigate('register');
   });
 
   nav.bind(container);
