@@ -1,161 +1,279 @@
-import { MOCK_PATIENTS, MOCK_USERS, MOCK_CLINICS, MOCK_APPROVAL_REQUESTS } from './mockData.js';
+import { supabase } from './supabaseClient.js';
 import { calcAge, calcPct } from '../utils.js';
 
-const STORAGE_KEY = 'myopia_tracker_data';
-
-function loadStore() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch {}
-  const store = {
-    patients: [...MOCK_PATIENTS],
-    users: { ...MOCK_USERS },
-    clinics: [...MOCK_CLINICS],
-    approvalRequests: [...MOCK_APPROVAL_REQUESTS],
-    currentUserId: null,
+// ============================================
+// Helper: convert DB row to JS object
+// ============================================
+function toPatientJS(p, measurements = [], treatments = []) {
+  return {
+    id: p.id,
+    regNo: p.reg_no,
+    name: p.name,
+    birthDate: p.birth_date,
+    gender: p.gender,
+    clinicId: p.clinic_id,
+    records: measurements
+      .sort((a, b) => new Date(a.date) - new Date(b.date))
+      .map(m => ({
+        id: m.id,
+        date: m.date,
+        age: parseFloat(m.age),
+        odAL: parseFloat(m.od_al),
+        osAL: parseFloat(m.os_al),
+        odSE: m.od_se != null ? parseFloat(m.od_se) : null,
+        osSE: m.os_se != null ? parseFloat(m.os_se) : null,
+        odPct: m.od_pct,
+        osPct: m.os_pct,
+      })),
+    treatments: treatments.map(t => ({
+      id: t.id,
+      type: t.type,
+      date: t.date,
+      age: parseFloat(t.age),
+    })),
   };
-  saveStore(store);
-  return store;
 }
 
-function saveStore(store) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+function toProfileJS(p) {
+  return {
+    id: p.id,
+    email: p.email,
+    name: p.name,
+    role: p.role,
+    approved: p.approved,
+    clinicId: p.clinic_id,
+    clinicName: p.clinic_name,
+    children: p.children || [],
+  };
 }
 
-function getStore() {
-  return loadStore();
+// ============================================
+// Auth
+// ============================================
+export async function login(role) {
+  // Demo login: sign in with pre-defined demo accounts
+  const demoAccounts = {
+    doctor: { email: 'demo-doctor@myopia-tracker.test', password: 'demo-doctor-2026' },
+    customer: { email: 'demo-customer@myopia-tracker.test', password: 'demo-customer-2026' },
+    admin: { email: 'demo-admin@myopia-tracker.test', password: 'demo-admin-2026' },
+  };
+  const creds = demoAccounts[role];
+  if (!creds) return null;
+
+  // Try sign in first, if fails try sign up (first-time demo)
+  let { data, error } = await supabase.auth.signInWithPassword(creds);
+  if (error) {
+    const signUp = await supabase.auth.signUp({
+      ...creds,
+      options: { data: { name: role === 'doctor' ? '홍길동' : role === 'customer' ? '김영희' : '관리자', role } }
+    });
+    if (signUp.error) { console.error('Demo login failed:', signUp.error); return null; }
+    data = signUp.data;
+  }
+
+  if (!data.user) return null;
+
+  // Fetch or set up profile
+  const profile = await getCurrentUser();
+  return profile;
 }
 
-export function login(role) {
-  const store = getStore();
-  const userMap = { doctor: 'doctor1', customer: 'customer1', admin: 'admin1' };
-  store.currentUserId = userMap[role] || null;
-  saveStore(store);
-  return store.users[store.currentUserId] || null;
+export async function loginWithEmail(email, password) {
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) throw error;
+  return await getCurrentUser();
 }
 
-export function logout() {
-  const store = getStore();
-  store.currentUserId = null;
-  saveStore(store);
+export async function registerWithEmail(email, password, metadata = {}) {
+  const { data, error } = await supabase.auth.signUp({
+    email, password,
+    options: { data: metadata }
+  });
+  if (error) throw error;
+  return data;
 }
 
-export function getCurrentUser() {
-  const store = getStore();
-  if (!store.currentUserId) return null;
-  return store.users[store.currentUserId] || null;
+export async function loginWithGoogle() {
+  const { data, error } = await supabase.auth.signInWithOAuth({ provider: 'google' });
+  if (error) throw error;
+  return data;
 }
 
-export function getPatients(clinicId) {
-  const store = getStore();
-  if (clinicId) return store.patients.filter(p => p.clinicId === clinicId);
-  return store.patients;
+export async function logout() {
+  await supabase.auth.signOut();
 }
 
-export function getPatientById(id) {
-  return getStore().patients.find(p => p.id === id) || null;
+export async function getCurrentUser() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+  if (!profile) return null;
+  return toProfileJS(profile);
 }
 
-export function searchPatients(query, clinicId) {
-  const q = query.toLowerCase();
-  return getPatients(clinicId).filter(p =>
-    p.name.toLowerCase().includes(q) || p.regNo.toLowerCase().includes(q)
-  );
+// ============================================
+// Patients
+// ============================================
+async function fetchPatientFull(patientRow) {
+  const { data: measurements } = await supabase
+    .from('measurements').select('*').eq('patient_id', patientRow.id).order('date');
+  const { data: treatments } = await supabase
+    .from('treatments').select('*').eq('patient_id', patientRow.id).order('date');
+  return toPatientJS(patientRow, measurements || [], treatments || []);
 }
 
-export function searchPatientByInfo(name, birthDate) {
-  return getStore().patients.find(p => p.name === name && p.birthDate === birthDate) || null;
+export async function getPatients(clinicId) {
+  let query = supabase.from('patients').select('*');
+  if (clinicId) query = query.eq('clinic_id', clinicId);
+  const { data, error } = await query.order('name');
+  if (error || !data) return [];
+  return Promise.all(data.map(p => fetchPatientFull(p)));
 }
 
-export function addPatient(patient) {
-  const store = getStore();
-  const id = 'p' + Date.now();
-  const newPatient = { ...patient, id, records: [], treatments: [] };
-  store.patients.push(newPatient);
-  saveStore(store);
-  return newPatient;
+export async function getPatientById(id) {
+  const { data, error } = await supabase.from('patients').select('*').eq('id', id).single();
+  if (error || !data) return null;
+  return fetchPatientFull(data);
 }
 
-export function deletePatient(id) {
-  const store = getStore();
-  store.patients = store.patients.filter(p => p.id !== id);
-  saveStore(store);
+export async function searchPatients(query, clinicId) {
+  let q = supabase.from('patients').select('*').or(`name.ilike.%${query}%,reg_no.ilike.%${query}%`);
+  if (clinicId) q = q.eq('clinic_id', clinicId);
+  const { data, error } = await q.order('name');
+  if (error || !data) return [];
+  return Promise.all(data.map(p => fetchPatientFull(p)));
 }
 
-export function addMeasurement(patientId, record) {
-  const store = getStore();
-  const patient = store.patients.find(p => p.id === patientId);
+export async function searchPatientByInfo(name, birthDate) {
+  const { data, error } = await supabase
+    .from('patients').select('*').eq('name', name).eq('birth_date', birthDate).limit(1).single();
+  if (error || !data) return null;
+  return fetchPatientFull(data);
+}
+
+export async function addPatient(patient) {
+  const { data, error } = await supabase.from('patients').insert({
+    name: patient.name,
+    birth_date: patient.birthDate,
+    gender: patient.gender,
+    reg_no: patient.regNo || null,
+    clinic_id: patient.clinicId,
+  }).select().single();
+  if (error) { console.error('addPatient error:', error); return null; }
+  return toPatientJS(data, [], []);
+}
+
+export async function deletePatient(id) {
+  await supabase.from('patients').delete().eq('id', id);
+}
+
+// ============================================
+// Measurements
+// ============================================
+export async function addMeasurement(patientId, record) {
+  // Get patient for age/pct calculation
+  const { data: patient } = await supabase.from('patients').select('*').eq('id', patientId).single();
   if (!patient) return null;
-  const age = calcAge(patient.birthDate, record.date);
+
+  const age = calcAge(patient.birth_date, record.date);
   const odPct = calcPct(patient.gender, age, record.odAL);
   const osPct = calcPct(patient.gender, age, record.osAL);
-  const fullRecord = { ...record, age, odPct, osPct };
-  patient.records.push(fullRecord);
-  patient.records.sort((a, b) => new Date(a.date) - new Date(b.date));
-  saveStore(store);
-  return fullRecord;
-}
 
-export function deleteRecord(patientId, index) {
-  const store = getStore();
-  const patient = store.patients.find(p => p.id === patientId);
-  if (!patient) return;
-  patient.records.splice(index, 1);
-  saveStore(store);
-}
-
-export function addTreatment(patientId, treatment) {
-  const store = getStore();
-  const patient = store.patients.find(p => p.id === patientId);
-  if (!patient) return null;
-  const age = calcAge(patient.birthDate, treatment.date);
-  const fullTreatment = { ...treatment, age };
-  patient.treatments.push(fullTreatment);
-  saveStore(store);
-  return fullTreatment;
-}
-
-export function removeTreatment(patientId, index) {
-  const store = getStore();
-  const patient = store.patients.find(p => p.id === patientId);
-  if (!patient) return;
-  patient.treatments.splice(index, 1);
-  saveStore(store);
-}
-
-export function getClinics() {
-  return getStore().clinics;
-}
-
-export function getApprovalRequests() {
-  return getStore().approvalRequests.filter(r => r.status === 'pending');
-}
-
-export function approveRequest(id) {
-  const store = getStore();
-  const req = store.approvalRequests.find(r => r.id === id);
-  if (req) req.status = 'approved';
-  saveStore(store);
-}
-
-export function rejectRequest(id) {
-  const store = getStore();
-  const req = store.approvalRequests.find(r => r.id === id);
-  if (req) req.status = 'rejected';
-  saveStore(store);
-}
-
-export function getStats() {
-  const store = getStore();
+  const { data, error } = await supabase.from('measurements').insert({
+    patient_id: patientId,
+    date: record.date,
+    age,
+    od_al: record.odAL,
+    os_al: record.osAL,
+    od_se: record.odSE ?? null,
+    os_se: record.osSE ?? null,
+    od_pct: odPct != null ? String(odPct) : null,
+    os_pct: osPct != null ? String(osPct) : null,
+  }).select().single();
+  if (error) { console.error('addMeasurement error:', error); return null; }
   return {
-    totalPatients: store.patients.length,
-    totalDoctors: Object.values(store.users).filter(u => u.role === 'doctor').length,
-    totalClinics: store.clinics.length,
-    pendingRequests: store.approvalRequests.filter(r => r.status === 'pending').length,
+    id: data.id, date: data.date, age: parseFloat(data.age),
+    odAL: parseFloat(data.od_al), osAL: parseFloat(data.os_al),
+    odSE: data.od_se != null ? parseFloat(data.od_se) : null,
+    osSE: data.os_se != null ? parseFloat(data.os_se) : null,
+    odPct: data.od_pct, osPct: data.os_pct,
   };
 }
 
-export function resetData() {
-  localStorage.removeItem(STORAGE_KEY);
+export async function deleteRecord(patientId, recordId) {
+  await supabase.from('measurements').delete().eq('id', recordId);
+}
+
+// ============================================
+// Treatments
+// ============================================
+export async function addTreatment(patientId, treatment) {
+  const { data: patient } = await supabase.from('patients').select('*').eq('id', patientId).single();
+  if (!patient) return null;
+  const age = calcAge(patient.birth_date, treatment.date);
+
+  const { data, error } = await supabase.from('treatments').insert({
+    patient_id: patientId,
+    type: treatment.type,
+    date: treatment.date,
+    age,
+  }).select().single();
+  if (error) { console.error('addTreatment error:', error); return null; }
+  return { id: data.id, type: data.type, date: data.date, age: parseFloat(data.age) };
+}
+
+export async function removeTreatment(patientId, treatmentId) {
+  await supabase.from('treatments').delete().eq('id', treatmentId);
+}
+
+// ============================================
+// Clinics
+// ============================================
+export async function getClinics() {
+  const { data } = await supabase.from('clinics').select('*').order('name');
+  return (data || []).map(c => ({ id: c.id, name: c.name, createdBy: c.created_by }));
+}
+
+// ============================================
+// Admin
+// ============================================
+export async function getApprovalRequests() {
+  const { data } = await supabase.from('approval_requests').select('*').eq('status', 'pending').order('created_at');
+  return (data || []).map(r => ({
+    id: r.id, userId: r.user_id, email: r.email, name: r.name,
+    clinicName: r.clinic_name, status: r.status, createdAt: r.created_at,
+  }));
+}
+
+export async function approveRequest(id) {
+  const { data: req } = await supabase.from('approval_requests').select('*').eq('id', id).single();
+  if (!req) return;
+  await supabase.from('approval_requests').update({ status: 'approved' }).eq('id', id);
+  if (req.user_id) {
+    await supabase.from('profiles').update({ approved: true }).eq('id', req.user_id);
+  }
+}
+
+export async function rejectRequest(id) {
+  await supabase.from('approval_requests').update({ status: 'rejected' }).eq('id', id);
+}
+
+export async function getStats() {
+  const [patients, doctors, clinics, pending] = await Promise.all([
+    supabase.from('patients').select('id', { count: 'exact', head: true }),
+    supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'doctor'),
+    supabase.from('clinics').select('id', { count: 'exact', head: true }),
+    supabase.from('approval_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+  ]);
+  return {
+    totalPatients: patients.count || 0,
+    totalDoctors: doctors.count || 0,
+    totalClinics: clinics.count || 0,
+    pendingRequests: pending.count || 0,
+  };
+}
+
+export async function resetData() {
+  // No-op for Supabase (data persists in cloud)
 }

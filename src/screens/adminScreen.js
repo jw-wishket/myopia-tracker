@@ -5,13 +5,13 @@ import { formatDate } from '../utils.js';
 
 let activeTab = 'approvals';
 
-export function renderAdminScreen(container) {
+export async function renderAdminScreen(container) {
   const user = getState().currentUser;
   if (!user) return;
 
-  const stats = getStats();
-  const requests = getApprovalRequests();
-  const clinics = getClinics();
+  const stats = await getStats();
+  const requests = await getApprovalRequests();
+  const clinics = await getClinics();
   const nav = renderNavbar({ title: '근시관리 트래커', subtitle: '관리자', user });
 
   container.innerHTML = `
@@ -38,23 +38,23 @@ export function renderAdminScreen(container) {
   nav.bind(container);
 
   container.querySelectorAll('.admin-tab').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       activeTab = btn.dataset.tab;
-      renderAdminScreen(container);
+      await renderAdminScreen(container);
     });
   });
 
   container.querySelectorAll('.approve-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      approveRequest(btn.dataset.id);
-      renderAdminScreen(container);
+    btn.addEventListener('click', async () => {
+      await approveRequest(btn.dataset.id);
+      await renderAdminScreen(container);
     });
   });
 
   container.querySelectorAll('.reject-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      rejectRequest(btn.dataset.id);
-      renderAdminScreen(container);
+    btn.addEventListener('click', async () => {
+      await rejectRequest(btn.dataset.id);
+      await renderAdminScreen(container);
     });
   });
 }

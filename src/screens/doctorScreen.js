@@ -14,13 +14,13 @@ import { todayStr, calcAge, progressLabel } from '../utils.js';
 
 let currentSearchQuery = '';
 
-export function renderDoctorScreen(container) {
+export async function renderDoctorScreen(container) {
   const user = getState().currentUser;
   if (!user) return;
 
   const patients = currentSearchQuery
-    ? searchPatients(currentSearchQuery, user.clinicId)
-    : getPatients(user.clinicId);
+    ? await searchPatients(currentSearchQuery, user.clinicId)
+    : await getPatients(user.clinicId);
 
   const selectedPatient = getState().currentPatient || patients[0] || null;
   if (selectedPatient && !getState().currentPatient) {
@@ -130,22 +130,22 @@ function renderPatientContent(patient, patients) {
 function bindDoctorEvents(container, user, patients, selectedPatient) {
   // Sidebar patient selection
   container.querySelectorAll('.sidebar-patient').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const patient = getPatientById(btn.dataset.id);
+    btn.addEventListener('click', async () => {
+      const patient = await getPatientById(btn.dataset.id);
       if (patient) {
         setState({ currentPatient: patient });
-        renderDoctorScreen(container);
+        await renderDoctorScreen(container);
       }
     });
   });
 
   // Mobile patient chips
   container.querySelectorAll('.mobile-patient-chip').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const patient = getPatientById(btn.dataset.id);
+    btn.addEventListener('click', async () => {
+      const patient = await getPatientById(btn.dataset.id);
       if (patient) {
         setState({ currentPatient: patient });
-        renderDoctorScreen(container);
+        await renderDoctorScreen(container);
       }
     });
   });
@@ -153,9 +153,9 @@ function bindDoctorEvents(container, user, patients, selectedPatient) {
   // Sidebar search
   const searchInput = container.querySelector('#sidebarSearch');
   if (searchInput) {
-    searchInput.addEventListener('input', (e) => {
+    searchInput.addEventListener('input', async (e) => {
       currentSearchQuery = e.target.value;
-      renderDoctorScreen(container);
+      await renderDoctorScreen(container);
       const newInput = container.querySelector('#sidebarSearch');
       if (newInput) { newInput.focus(); newInput.selectionStart = newInput.selectionEnd = newInput.value.length; }
     });
@@ -182,33 +182,33 @@ function bindDoctorEvents(container, user, patients, selectedPatient) {
   }
   const treatmentConfirm = container.querySelector('#treatmentAddConfirm');
   if (treatmentConfirm && selectedPatient) {
-    treatmentConfirm.addEventListener('click', () => {
+    treatmentConfirm.addEventListener('click', async () => {
       const type = container.querySelector('#treatmentTypeSelect').value;
       const date = container.querySelector('#treatmentDateInput').value;
       if (type && date) {
-        addTreatment(selectedPatient.id, { type, date });
-        setState({ currentPatient: getPatientById(selectedPatient.id) });
-        renderDoctorScreen(container);
+        await addTreatment(selectedPatient.id, { type, date });
+        setState({ currentPatient: await getPatientById(selectedPatient.id) });
+        await renderDoctorScreen(container);
       }
     });
   }
   container.querySelectorAll('.treatment-remove').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       if (selectedPatient) {
-        removeTreatment(selectedPatient.id, parseInt(btn.dataset.index));
-        setState({ currentPatient: getPatientById(selectedPatient.id) });
-        renderDoctorScreen(container);
+        await removeTreatment(selectedPatient.id, btn.dataset.id);
+        setState({ currentPatient: await getPatientById(selectedPatient.id) });
+        await renderDoctorScreen(container);
       }
     });
   });
 
   // Delete record
   container.querySelectorAll('.record-delete').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       if (selectedPatient && confirm('이 측정 기록을 삭제하시겠습니까?')) {
-        deleteRecord(selectedPatient.id, parseInt(btn.dataset.index));
-        setState({ currentPatient: getPatientById(selectedPatient.id) });
-        renderDoctorScreen(container);
+        await deleteRecord(selectedPatient.id, btn.dataset.id);
+        setState({ currentPatient: await getPatientById(selectedPatient.id) });
+        await renderDoctorScreen(container);
       }
     });
   });
@@ -268,16 +268,16 @@ function openAddPatientModal(container, user) {
   `);
 
   modal.element.querySelector('#cancelAddPatient').addEventListener('click', modal.close);
-  modal.element.querySelector('#confirmAddPatient').addEventListener('click', () => {
+  modal.element.querySelector('#confirmAddPatient').addEventListener('click', async () => {
     const name = modal.element.querySelector('#newPatientName').value.trim();
     const birthDate = modal.element.querySelector('#newPatientBirth').value;
     const gender = modal.element.querySelector('input[name="gender"]:checked').value;
     const regNo = modal.element.querySelector('#newPatientRegNo').value.trim();
     if (!name || !birthDate) return;
-    const newPatient = addPatient({ name, birthDate, gender, regNo, clinicId: user.clinicId });
+    const newPatient = await addPatient({ name, birthDate, gender, regNo, clinicId: user.clinicId });
     setState({ currentPatient: newPatient });
     modal.close();
-    renderDoctorScreen(container);
+    await renderDoctorScreen(container);
   });
 }
 
@@ -308,17 +308,17 @@ function openAddMeasurementModal(container, patient) {
     </div>
   `);
 
-  modal.element.querySelector('#confirmMeasurement').addEventListener('click', () => {
+  modal.element.querySelector('#confirmMeasurement').addEventListener('click', async () => {
     const date = modal.element.querySelector('#measDate').value;
     const odAL = parseFloat(modal.element.querySelector('#measOdAL').value);
     const osAL = parseFloat(modal.element.querySelector('#measOsAL').value);
     const odSE = parseFloat(modal.element.querySelector('#measOdSE').value);
     const osSE = parseFloat(modal.element.querySelector('#measOsSE').value);
     if (!date || isNaN(odAL) || isNaN(osAL)) return;
-    addMeasurement(patient.id, { date, odAL, osAL, odSE: isNaN(odSE) ? null : odSE, osSE: isNaN(osSE) ? null : osSE });
-    setState({ currentPatient: getPatientById(patient.id) });
+    await addMeasurement(patient.id, { date, odAL, osAL, odSE: isNaN(odSE) ? null : odSE, osSE: isNaN(osSE) ? null : osSE });
+    setState({ currentPatient: await getPatientById(patient.id) });
     modal.close();
-    renderDoctorScreen(container);
+    await renderDoctorScreen(container);
   });
 }
 

@@ -16,7 +16,7 @@ export function renderTreatmentTags(treatments, options = {}) {
         <span class="w-2 h-2 rounded-full" style="background:${color}"></span>
         <span class="font-medium">${t.type}</span>
         <span class="text-xs opacity-70">${formatDate(t.date)}</span>
-        ${editable ? `<button class="treatment-remove ml-1 hover:opacity-70" data-index="${i}">&times;</button>` : ''}
+        ${editable ? `<button class="treatment-remove ml-1 hover:opacity-70" data-id="${t.id}">&times;</button>` : ''}
       </span>
     `;
   }).join('');

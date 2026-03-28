@@ -7,7 +7,7 @@ let selectedRole = 'customer';
 let selectedClinic = null;
 let children = [];
 
-export function renderRegisterScreen(container) {
+export async function renderRegisterScreen(container) {
   const nav = renderNavbar({ title: '근시관리 트래커', subtitle: '회원가입', showBack: true, backTarget: 'login' });
 
   container.innerHTML = `
@@ -22,7 +22,7 @@ export function renderRegisterScreen(container) {
         `).join('')}
       </div>
 
-      ${step === 1 ? renderStep1() : step === 2 ? renderStep2() : renderStep3()}
+      ${step === 1 ? renderStep1() : step === 2 ? await renderStep2() : renderStep3()}
     </main>
   `;
 
@@ -58,8 +58,8 @@ function renderStep1() {
   `;
 }
 
-function renderStep2() {
-  const clinics = getClinics();
+async function renderStep2() {
+  const clinics = await getClinics();
   return `
     <div class="bg-white rounded-2xl border border-slate-200 p-6">
       <h3 class="text-lg font-semibold text-slate-800 mb-2">안과 연결</h3>
@@ -123,31 +123,31 @@ function renderDoctorForm() {
 }
 
 function bindRegisterEvents(container) {
-  container.querySelector('#regNext1')?.addEventListener('click', () => {
+  container.querySelector('#regNext1')?.addEventListener('click', async () => {
     selectedRole = container.querySelector('input[name="regRole"]:checked')?.value || 'customer';
     step = 2;
-    renderRegisterScreen(container);
+    await renderRegisterScreen(container);
   });
-  container.querySelector('#regBack2')?.addEventListener('click', () => { step = 1; renderRegisterScreen(container); });
-  container.querySelector('#regNext2')?.addEventListener('click', () => { if (selectedClinic) { step = 3; renderRegisterScreen(container); } });
-  container.querySelector('#regBack3')?.addEventListener('click', () => { step = 2; renderRegisterScreen(container); });
+  container.querySelector('#regBack2')?.addEventListener('click', async () => { step = 1; await renderRegisterScreen(container); });
+  container.querySelector('#regNext2')?.addEventListener('click', async () => { if (selectedClinic) { step = 3; await renderRegisterScreen(container); } });
+  container.querySelector('#regBack3')?.addEventListener('click', async () => { step = 2; await renderRegisterScreen(container); });
   container.querySelector('#regComplete')?.addEventListener('click', () => {
     if (selectedRole === 'doctor') { navigate('pending'); }
     else { navigate('login'); }
     step = 1; selectedClinic = null; children = [];
   });
   container.querySelectorAll('.clinic-item').forEach(item => {
-    item.addEventListener('click', () => {
+    item.addEventListener('click', async () => {
       selectedClinic = { id: item.dataset.id, name: item.dataset.name };
-      renderRegisterScreen(container);
+      await renderRegisterScreen(container);
     });
   });
-  container.querySelector('#addChildBtn')?.addEventListener('click', () => {
+  container.querySelector('#addChildBtn')?.addEventListener('click', async () => {
     const name = container.querySelector('#childName').value.trim();
     const birth = container.querySelector('#childBirth').value;
-    if (name && birth) { children.push({ name, birthDate: birth }); renderRegisterScreen(container); }
+    if (name && birth) { children.push({ name, birthDate: birth }); await renderRegisterScreen(container); }
   });
   container.querySelectorAll('.remove-child').forEach(btn => {
-    btn.addEventListener('click', () => { children.splice(parseInt(btn.dataset.index), 1); renderRegisterScreen(container); });
+    btn.addEventListener('click', async () => { children.splice(parseInt(btn.dataset.index), 1); await renderRegisterScreen(container); });
   });
 }

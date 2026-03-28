@@ -10,7 +10,7 @@ export function navigate(hash) {
 }
 
 export function startRouter(container) {
-  function handleRoute() {
+  async function handleRoute() {
     const hash = window.location.hash.slice(1) || 'login';
     const renderFn = routes[hash];
     if (currentCleanup) {
@@ -19,7 +19,8 @@ export function startRouter(container) {
     }
     if (renderFn) {
       container.innerHTML = '';
-      currentCleanup = renderFn(container) || null;
+      const result = await renderFn(container);
+      currentCleanup = result || null;
     } else {
       navigate('login');
     }

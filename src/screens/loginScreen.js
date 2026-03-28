@@ -4,7 +4,7 @@ import { setState } from '../state.js';
 import { navigate } from '../router.js';
 import { todayStr } from '../utils.js';
 
-export function renderLoginScreen(container) {
+export async function renderLoginScreen(container) {
   const nav = renderNavbar({ title: '근시관리 트래커' });
 
   container.innerHTML = `
@@ -132,7 +132,7 @@ export function renderLoginScreen(container) {
   });
 
   // Patient search
-  container.querySelector('#searchBtn').addEventListener('click', () => {
+  container.querySelector('#searchBtn').addEventListener('click', async () => {
     const name = container.querySelector('#searchName').value.trim();
     const birth = container.querySelector('#searchBirth').value;
     const errEl = container.querySelector('#searchError');
@@ -141,7 +141,7 @@ export function renderLoginScreen(container) {
       errEl.classList.remove('hidden');
       return;
     }
-    const patient = searchPatientByInfo(name, birth);
+    const patient = await searchPatientByInfo(name, birth);
     if (patient) {
       setState({ currentPatient: patient });
       navigate('patient-result');
@@ -153,9 +153,9 @@ export function renderLoginScreen(container) {
 
   // Demo logins
   container.querySelectorAll('.demo-login').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       const role = btn.dataset.role;
-      const user = login(role);
+      const user = await login(role);
       setState({ currentUser: user });
       navigate(role === 'admin' ? 'admin' : role === 'customer' ? 'customer' : 'doctor');
     });

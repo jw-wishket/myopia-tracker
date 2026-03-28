@@ -24,12 +24,12 @@ registerRoute('pending', renderPendingScreen);
 
 // Auth-guarded routes
 function authGuard(renderFn) {
-  return (container) => {
+  return async (container) => {
     if (!getState().currentUser) {
       navigate('login');
       return;
     }
-    return renderFn(container);
+    return await renderFn(container);
   };
 }
 
@@ -71,11 +71,12 @@ registerRoute('patient-result', (container) => {
 });
 
 // Restore session
-const user = getCurrentUser();
-if (user) {
-  setState({ currentUser: user });
-  const route = user.role === 'admin' ? 'admin' : user.role === 'customer' ? 'customer' : 'doctor';
-  window.location.hash = route;
-}
-
-startRouter(document.getElementById('app'));
+(async () => {
+  const user = await getCurrentUser();
+  if (user) {
+    setState({ currentUser: user });
+    const route = user.role === 'admin' ? 'admin' : user.role === 'customer' ? 'customer' : 'doctor';
+    window.location.hash = route;
+  }
+  startRouter(document.getElementById('app'));
+})();

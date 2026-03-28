@@ -47,8 +47,8 @@ export function renderNavbar(options = {}) {
     bind(container) {
       const logoutBtn = container.querySelector('#navLogoutBtn');
       if (logoutBtn) {
-        logoutBtn.addEventListener('click', () => {
-          logout();
+        logoutBtn.addEventListener('click', async () => {
+          await logout();
           setState({ currentUser: null, currentPatient: null });
           navigate('login');
         });

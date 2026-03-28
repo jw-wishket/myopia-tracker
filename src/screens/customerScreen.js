@@ -9,11 +9,11 @@ import { getState, setState } from '../state.js';
 import { getPatients, getPatientById } from '../data/dataService.js';
 import { progressLabel } from '../utils.js';
 
-export function renderCustomerScreen(container) {
+export async function renderCustomerScreen(container) {
   const user = getState().currentUser;
   if (!user) return;
 
-  const patients = getPatients(user.clinicId);
+  const patients = await getPatients(user.clinicId);
   const children = user.children || [];
 
   // Match children to patients by name+birthDate
@@ -50,11 +50,11 @@ export function renderCustomerScreen(container) {
 
   // Child selection
   container.querySelectorAll('.child-select').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const patient = getPatientById(btn.dataset.id);
+    btn.addEventListener('click', async () => {
+      const patient = await getPatientById(btn.dataset.id);
       if (patient) {
         setState({ currentPatient: patient });
-        renderCustomerScreen(container);
+        await renderCustomerScreen(container);
       }
     });
   });

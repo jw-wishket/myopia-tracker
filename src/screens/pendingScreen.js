@@ -22,7 +22,7 @@ export function renderPendingScreen(container) {
     </div>
   `;
   nav.bind(container);
-  container.querySelector('#pendingLogout')?.addEventListener('click', () => {
-    logout(); setState({ currentUser: null }); navigate('login');
+  container.querySelector('#pendingLogout')?.addEventListener('click', async () => {
+    await logout(); setState({ currentUser: null }); navigate('login');
   });
 }
