@@ -106,6 +106,11 @@ export async function renderLoginScreen(container) {
     });
   });
 
+  // Patient search: Enter key on any search field
+  container.querySelectorAll('#searchName, #searchBirth, #searchRegNo').forEach(el => {
+    el.addEventListener('keydown', (e) => { if (e.key === 'Enter') container.querySelector('#searchBtn').click(); });
+  });
+
   // Patient search
   container.querySelector('#searchBtn').addEventListener('click', async () => {
     const name = container.querySelector('#searchName').value.trim();
@@ -124,6 +129,11 @@ export async function renderLoginScreen(container) {
       errEl.textContent = '일치하는 환자를 찾을 수 없습니다';
       errEl.classList.remove('hidden');
     }
+  });
+
+  // Login: Enter key on password field
+  container.querySelector('#loginPassword').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') container.querySelector('#loginBtn').click();
   });
 
   // Login button
@@ -174,6 +184,11 @@ export async function renderLoginScreen(container) {
       errEl.textContent = '비밀번호 재설정에 실패했습니다';
       errEl.classList.remove('hidden');
     }
+  });
+
+  // Register: Enter key on password confirm field
+  container.querySelector('#regPasswordConfirm').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') container.querySelector('#regBtn').click();
   });
 
   // Register button
