@@ -72,17 +72,12 @@ export async function renderDoctorScreen(container) {
     setState({ currentPatient: selectedPatient });
   }
 
-  if (selectedPatient) {
-    currentNotes = await getNotes(selectedPatient.id);
-  } else {
-    currentNotes = [];
-  }
-
-  // Feature 3: get overdue patients
-  let overduePatients = [];
-  try {
-    overduePatients = await getOverduePatients(user.clinicId);
-  } catch (e) { /* column may not exist yet */ }
+  const [notes, overdue] = await Promise.all([
+    selectedPatient ? getNotes(selectedPatient.id) : Promise.resolve([]),
+    getOverduePatients(user.clinicId).catch(() => []),
+  ]);
+  currentNotes = notes;
+  const overduePatients = overdue;
 
   const nav = renderNavbar({ title: '근시관리 트래커', subtitle: user.clinicName, user });
   const sidebar = renderSidebar(sidebarPatients, selectedPatient?.id, { searchQuery: currentSearchQuery, isSearching, totalCount });

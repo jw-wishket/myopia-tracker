@@ -42,7 +42,7 @@ export async function importMeasurements(patientId, records) {
   const { data: patient } = await supabase.from('patients').select('*').eq('id', patientId).single();
   if (!patient) return { success: 0, errors: [] };
 
-  let success = 0;
+  const rows = [];
   const errors = [];
 
   for (const r of records) {
@@ -50,8 +50,7 @@ export async function importMeasurements(patientId, records) {
       const age = calcAge(patient.birth_date, r.date);
       const odPct = r.odAL ? calcPct(patient.gender, age, r.odAL) : null;
       const osPct = r.osAL ? calcPct(patient.gender, age, r.osAL) : null;
-
-      const { error } = await supabase.from('measurements').insert({
+      rows.push({
         patient_id: patientId,
         date: r.date,
         age,
@@ -62,11 +61,19 @@ export async function importMeasurements(patientId, records) {
         od_pct: odPct != null ? String(odPct) : null,
         os_pct: osPct != null ? String(osPct) : null,
       });
-      if (error) throw error;
-      success++;
     } catch (e) {
       errors.push(`${r.date}: ${e.message}`);
     }
   }
-  return { success, errors };
+
+  if (rows.length > 0) {
+    const { error } = await supabase.from('measurements').insert(rows);
+    if (error) {
+      errors.push(error.message);
+      return { success: 0, errors };
+    }
+  }
+
+  await logAudit('import', 'measurements', patientId, { count: rows.length });
+  return { success: rows.length, errors };
 }

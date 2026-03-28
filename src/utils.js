@@ -33,11 +33,15 @@ export function calcPct(gender, age, al) {
   return 50;
 }
 
+const curveCache = {};
 export function generateCurveData(gender, pKey) {
+  const cacheKey = `${gender}_${pKey}`;
+  if (curveCache[cacheKey]) return curveCache[cacheKey];
   const data = PERCENTILE_DATA[gender];
   const points = [];
   for (let age = 4; age <= 18; age += 0.5)
     points.push({ x: age, y: interpolateValue(data, age, pKey) });
+  curveCache[cacheKey] = points;
   return points;
 }
 

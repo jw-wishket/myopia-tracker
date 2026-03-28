@@ -53,10 +53,10 @@ export function toProfileJS(p) {
 }
 
 export async function fetchPatientFull(patientRow) {
-  const { data: measurements } = await supabase
-    .from('measurements').select('*').eq('patient_id', patientRow.id).order('date');
-  const { data: treatments } = await supabase
-    .from('treatments').select('*').eq('patient_id', patientRow.id).order('date');
+  const [{ data: measurements }, { data: treatments }] = await Promise.all([
+    supabase.from('measurements').select('*').eq('patient_id', patientRow.id).order('date'),
+    supabase.from('treatments').select('*').eq('patient_id', patientRow.id).order('date'),
+  ]);
   return toPatientJS(patientRow, measurements || [], treatments || []);
 }
 
