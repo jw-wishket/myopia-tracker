@@ -552,7 +552,7 @@ function openAddPatientModal(container, user) {
       </div>
       <div>
         <label class="block text-sm font-medium text-slate-600 mb-1.5">생년월일</label>
-        <input type="date" id="newPatientBirth" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary-400">
+        <input type="date" id="newPatientBirth" min="1900-01-01" max="2099-12-31" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary-400">
       </div>
       <div>
         <label class="block text-sm font-medium text-slate-600 mb-1.5">성별</label>
@@ -611,7 +611,7 @@ function openEditPatientModal(container, patient) {
       </div>
       <div>
         <label class="block text-sm font-medium text-slate-600 mb-1.5">생년월일</label>
-        <input type="date" id="editPatientBirth" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary-400" value="${patient.birthDate}">
+        <input type="date" id="editPatientBirth" min="1900-01-01" max="2099-12-31" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary-400" value="${patient.birthDate}">
       </div>
       <div>
         <label class="block text-sm font-medium text-slate-600 mb-1.5">관리번호 <span class="text-slate-400 font-normal">(선택)</span></label>
@@ -661,7 +661,7 @@ function openAddMeasurementModal(container, patient) {
       ${lastRecordHtml}
       <div>
         <label class="block text-sm font-medium text-slate-600 mb-1.5">측정일</label>
-        <input type="date" id="measDate" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary-400" value="${todayStr()}">
+        <input type="date" id="measDate" min="1900-01-01" max="2099-12-31" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary-400" value="${todayStr()}">
       </div>
       <div class="rounded-xl border-2 border-od/20 p-4 space-y-3">
         <div class="text-xs font-semibold text-od uppercase tracking-wide">우안 (OD)</div>

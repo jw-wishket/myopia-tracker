@@ -120,7 +120,7 @@ function renderChildrenForm() {
       ${childList}
       <div class="flex gap-2">
         <input type="text" id="childName" class="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm" placeholder="자녀 이름">
-        <input type="date" id="childBirth" class="px-3 py-2 border border-slate-200 rounded-lg text-sm">
+        <input type="date" id="childBirth" min="1900-01-01" max="2099-12-31" class="px-3 py-2 border border-slate-200 rounded-lg text-sm">
         <button id="addChildBtn" class="px-4 py-2 border border-dashed border-primary-300 text-primary-600 rounded-lg text-sm">추가</button>
       </div>
     </div>

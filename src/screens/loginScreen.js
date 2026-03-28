@@ -44,7 +44,7 @@ export async function renderLoginScreen(container) {
                 </div>
                 <div>
                   <label class="block text-sm font-medium text-slate-600 mb-1.5">생년월일</label>
-                  <input type="date" id="searchBirth" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 transition">
+                  <input type="date" id="searchBirth" min="1900-01-01" max="2099-12-31" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 transition">
                 </div>
                 <div>
                   <label class="block text-sm font-medium text-slate-600 mb-1.5">관리번호</label>

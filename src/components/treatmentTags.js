@@ -47,7 +47,7 @@ function renderAddForm(treatmentTypes = []) {
         </select>
       </div>
       <input type="text" id="treatmentCustomType" class="hidden px-3 py-2 border border-slate-200 rounded-lg text-sm flex-1 min-w-[150px]" placeholder="치료명 입력">
-      <input type="date" id="treatmentDateInput" class="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-primary-400" value="${todayStr()}">
+      <input type="date" id="treatmentDateInput" min="1900-01-01" max="2099-12-31" class="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-primary-400" value="${todayStr()}">
       <button id="treatmentAddConfirm" class="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm hover:bg-primary-700 transition-colors">추가</button>
     </div>
   `;
