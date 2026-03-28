@@ -5,6 +5,9 @@ import { navigate } from '../router.js';
 
 export let pendingRegistration = { email: '', password: '' };
 
+let lastSearchTime = 0;
+const SEARCH_COOLDOWN = 2000;
+
 export async function renderLoginScreen(container) {
   const clinics = await getClinics();
   const clinicOptions = clinics.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
@@ -129,6 +132,14 @@ export async function renderLoginScreen(container) {
     const customRef = container.querySelector('#searchRegNo').value.trim();
     const errEl = container.querySelector('#searchError');
     errEl.classList.add('hidden');
+
+    const now = Date.now();
+    if (now - lastSearchTime < SEARCH_COOLDOWN) {
+      errEl.textContent = '잠시 후 다시 시도해주세요';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    lastSearchTime = now;
 
     if (!clinicId) {
       errEl.textContent = '안과를 선택해주세요';

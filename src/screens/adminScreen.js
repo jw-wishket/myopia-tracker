@@ -9,6 +9,10 @@ import {
 import { openModal } from '../components/modal.js';
 import { formatDate, escapeHtml } from '../utils.js';
 
+function safeColor(color) {
+  return /^#[0-9a-fA-F]{6}$/.test(color) ? color : '#7c3aed';
+}
+
 let activeTab = 'approvals';
 
 export async function renderAdminScreen(container) {
@@ -373,7 +377,7 @@ function renderTreatmentTypesTab(types) {
             ${types.length === 0 ? '<tr><td colspan="3" class="px-4 py-6 text-center text-sm text-slate-400">등록된 치료 종류가 없습니다</td></tr>' :
               types.map(t => `
               <tr class="border-b border-slate-100 hover:bg-slate-50">
-                <td class="px-4 py-3"><span class="inline-block w-4 h-4 rounded-full" style="background:${t.color}"></span></td>
+                <td class="px-4 py-3"><span class="inline-block w-4 h-4 rounded-full" style="background:${safeColor(t.color)}"></span></td>
                 <td class="px-4 py-3 text-sm text-slate-800">${escapeHtml(t.name)}</td>
                 <td class="px-4 py-3">
                   <button class="delete-treatment-type text-slate-300 hover:text-red-500 transition-colors" data-id="${t.id}">

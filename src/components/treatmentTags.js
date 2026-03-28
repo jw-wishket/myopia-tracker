@@ -14,7 +14,8 @@ export function renderTreatmentTags(treatments, options = {}) {
   }
 
   const tags = treatments.map((t, i) => {
-    const color = colorMap[t.type] || TREATMENT_COLORS[t.type] || '#7c3aed';
+    const rawColor = colorMap[t.type] || TREATMENT_COLORS[t.type] || '#7c3aed';
+    const color = /^#[0-9a-fA-F]{6}$/.test(rawColor) ? rawColor : '#7c3aed';
     return `
       <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm border" style="border-color:${color}30; background:${color}10; color:${color}">
         <span class="w-2 h-2 rounded-full" style="background:${color}"></span>

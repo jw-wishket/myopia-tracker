@@ -183,6 +183,8 @@ function bindRegisterEvents(container) {
           clinicId,
           clinicName,
         });
+        pendingRegistration.email = '';
+        pendingRegistration.password = '';
         step = 1; selectedClinic = null; newClinicName = null; children = [];
         navigate('pending');
       } else {
@@ -194,6 +196,8 @@ function bindRegisterEvents(container) {
           clinicName,
           children: children,
         });
+        pendingRegistration.email = '';
+        pendingRegistration.password = '';
         step = 1; selectedClinic = null; newClinicName = null; children = [];
         navigate('login');
       }
