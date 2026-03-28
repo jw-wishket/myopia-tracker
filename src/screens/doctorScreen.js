@@ -18,6 +18,7 @@ import { showSyncStatus } from '../components/syncStatus.js';
 import { openPrintReport } from '../components/printReport.js';
 import { openAddPatientModal, openEditPatientModal, openAddMeasurementModal, openImportCsvModal, openSettingsModal, openShortcutHelpModal } from './doctor/modals.js';
 import { exportCSV } from './doctor/exportUtils.js';
+import { invalidatePatient } from '../data/patientCache.js';
 
 let currentSearchQuery = '';
 let measurementFilter = 'all';
@@ -25,6 +26,7 @@ let currentNotes = [];
 let cachedTreatmentTypes = [];
 
 let isLoadingPatients = false;
+let currentKeyboardHandler = null;
 
 export async function renderDoctorScreen(container) {
   const user = getState().currentUser;
@@ -113,7 +115,11 @@ export async function renderDoctorScreen(container) {
     initProgressChart(selectedPatient, getState().currentChartType || 'AL');
   }
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts - remove previous handler to prevent stacking
+  if (currentKeyboardHandler) {
+    document.removeEventListener('keydown', currentKeyboardHandler);
+  }
+
   const rerender = () => renderDoctorScreen(container);
 
   function handleKeyboard(e) {
@@ -151,12 +157,16 @@ export async function renderDoctorScreen(container) {
     }
   }
 
+  currentKeyboardHandler = handleKeyboard;
   document.addEventListener('keydown', handleKeyboard);
 
   return () => {
     destroyChart('growthChart');
     destroyProgressChart();
-    document.removeEventListener('keydown', handleKeyboard);
+    if (currentKeyboardHandler) {
+      document.removeEventListener('keydown', currentKeyboardHandler);
+      currentKeyboardHandler = null;
+    }
   };
 }
 
@@ -285,7 +295,9 @@ function renderPatientContent(patient, patients) {
             <button class="measurement-filter-btn px-3 py-1 rounded-full text-xs font-medium ${measurementFilter === '6months' ? 'bg-primary-600 text-white' : 'text-slate-500 border border-slate-200 hover:bg-slate-50'}" data-filter="6months">최근 6개월</button>
           </div>
         </div>
-        ${renderMeasurementTable(filterRecords(patient.records), { editable: true })}
+        <div id="measurementTableContainer">
+          ${renderMeasurementTable(filterRecords(patient.records), { editable: true })}
+        </div>
       </div>
 
       <div class="bg-white rounded-2xl border border-slate-200 p-5">
@@ -302,6 +314,26 @@ function filterRecords(records) {
   const months = measurementFilter === '1year' ? 12 : 6;
   const cutoff = new Date(now.getFullYear(), now.getMonth() - months, now.getDate());
   return records.filter(r => new Date(r.date) >= cutoff);
+}
+
+function bindTableDeleteHandlers(tableContainer, patient, container) {
+  tableContainer.querySelectorAll('.record-delete').forEach(delBtn => {
+    delBtn.addEventListener('click', async () => {
+      if (confirm('이 측정 기록을 삭제하시겠습니까?')) {
+        delBtn.disabled = true;
+        delBtn.classList.add('opacity-50', 'pointer-events-none');
+        showSyncStatus('syncing', '삭제 중...');
+        await deleteRecord(patient.id, delBtn.dataset.id);
+        showSyncStatus('synced', '삭제 완료');
+        invalidatePatient(patient.id);
+        const updated = await getPatientById(patient.id);
+        setState({ currentPatient: updated });
+        const refiltered = filterRecords(updated.records);
+        tableContainer.innerHTML = renderMeasurementTable(refiltered, { editable: true });
+        bindTableDeleteHandlers(tableContainer, updated, container);
+      }
+    });
+  });
 }
 
 function bindDoctorEvents(container, user, patients, selectedPatient) {
@@ -513,11 +545,23 @@ function bindDoctorEvents(container, user, patients, selectedPatient) {
     });
   }
 
-  // Measurement date filter
+  // Measurement date filter - partial update instead of full re-render
   container.querySelectorAll('.measurement-filter-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
+    btn.addEventListener('click', () => {
       measurementFilter = btn.dataset.filter;
-      await renderDoctorScreen(container);
+      // Update filter button styles
+      container.querySelectorAll('.measurement-filter-btn').forEach(b => {
+        b.className = b.dataset.filter === measurementFilter
+          ? 'measurement-filter-btn px-3 py-1 rounded-full text-xs font-medium bg-primary-600 text-white'
+          : 'measurement-filter-btn px-3 py-1 rounded-full text-xs font-medium text-slate-500 border border-slate-200 hover:bg-slate-50';
+      });
+      // Update only the table, not the entire page
+      const tableContainer = container.querySelector('#measurementTableContainer');
+      if (tableContainer && selectedPatient) {
+        const filtered = filterRecords(selectedPatient.records);
+        tableContainer.innerHTML = renderMeasurementTable(filtered, { editable: true });
+        bindTableDeleteHandlers(tableContainer, selectedPatient, container);
+      }
     });
   });
 

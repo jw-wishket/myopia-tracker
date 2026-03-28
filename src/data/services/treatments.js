@@ -1,6 +1,7 @@
 import { supabase } from '../supabaseClient.js';
 import { calcAge } from '../../utils.js';
 import { logAudit } from './helpers.js';
+import { invalidatePatient } from '../patientCache.js';
 
 export async function addTreatment(patientId, treatment) {
   const { data: patient } = await supabase.from('patients').select('*').eq('id', patientId).single();
@@ -15,21 +16,27 @@ export async function addTreatment(patientId, treatment) {
     end_date: treatment.endDate || null,
   }).select().single();
   if (error) { console.error('addTreatment error:', error); return null; }
+  invalidatePatient(patientId);
   await logAudit('create', 'treatment', data.id, { patient_id: patientId });
   return { id: data.id, type: data.type, date: data.date, age: parseFloat(data.age), endDate: data.end_date };
 }
 
 export async function removeTreatment(patientId, treatmentId) {
   await supabase.from('treatments').delete().eq('id', treatmentId);
+  invalidatePatient(patientId);
   await logAudit('delete', 'treatment', treatmentId, { patient_id: patientId });
 }
 
 export async function updateTreatment(treatmentId, updates) {
+  // Look up patient_id for cache invalidation
+  const { data: treatment } = await supabase.from('treatments').select('patient_id').eq('id', treatmentId).single();
+
   const dbUpdates = {};
   if (updates.endDate !== undefined) dbUpdates.end_date = updates.endDate;
   if (updates.type !== undefined) dbUpdates.type = updates.type;
   const { error } = await supabase.from('treatments').update(dbUpdates).eq('id', treatmentId);
   if (error) { console.error('updateTreatment error:', error); return false; }
+  if (treatment) invalidatePatient(treatment.patient_id);
   return true;
 }
 

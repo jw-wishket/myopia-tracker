@@ -1,6 +1,7 @@
 import { supabase } from '../supabaseClient.js';
 import { calcAge, calcPct } from '../../utils.js';
 import { escapeLike, toPatientJS, fetchPatientFull, logAudit } from './helpers.js';
+import { getCachedPatient, setCachedPatient, invalidatePatient } from '../patientCache.js';
 
 export async function getPatients(clinicId) {
   let query = supabase.from('patients').select('*');
@@ -35,7 +36,9 @@ export async function getRecentPatients(clinicId, limit = 10) {
       .order('created_at', { ascending: false })
       .limit(limit);
     if (!data || data.length === 0) return [];
-    return Promise.all(data.map(p => fetchPatientFull(p)));
+    const fullPatients = await Promise.all(data.map(p => fetchPatientFull(p)));
+    for (const fp of fullPatients) setCachedPatient(fp.id, fp);
+    return fullPatients;
   }
 
   const seen = new Set();
@@ -57,7 +60,9 @@ export async function getRecentPatients(clinicId, limit = 10) {
   const patientMap = {};
   data.forEach(p => { patientMap[p.id] = p; });
   const orderedRows = recentIds.map(id => patientMap[id]).filter(Boolean);
-  return Promise.all(orderedRows.map(p => fetchPatientFull(p)));
+  const fullPatients = await Promise.all(orderedRows.map(p => fetchPatientFull(p)));
+  for (const fp of fullPatients) setCachedPatient(fp.id, fp);
+  return fullPatients;
 }
 
 export async function searchPatientsLight(query, clinicId) {
@@ -78,9 +83,14 @@ export async function getPatientCount(clinicId) {
 }
 
 export async function getPatientById(id) {
+  const cached = getCachedPatient(id);
+  if (cached) return cached;
+
   const { data, error } = await supabase.from('patients').select('*').eq('id', id).single();
   if (error || !data) return null;
-  return fetchPatientFull(data);
+  const patient = await fetchPatientFull(data);
+  setCachedPatient(id, patient);
+  return patient;
 }
 
 export async function searchPatients(query, clinicId) {
@@ -161,6 +171,7 @@ export async function addPatient(patient) {
 
 export async function deletePatient(id) {
   await supabase.from('patients').delete().eq('id', id);
+  invalidatePatient(id);
   await logAudit('delete', 'patient', id);
 }
 
@@ -188,6 +199,7 @@ export async function updatePatient(id, updates) {
   if (updates.followUpMonths !== undefined) dbUpdates.follow_up_months = updates.followUpMonths;
   const { error } = await supabase.from('patients').update(dbUpdates).eq('id', id);
   if (error) { console.error('updatePatient error:', error); return false; }
+  invalidatePatient(id);
   await logAudit('update', 'patient', id, updates);
   return true;
 }

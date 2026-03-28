@@ -1,6 +1,7 @@
 import { supabase } from '../supabaseClient.js';
 import { calcAge, calcPct } from '../../utils.js';
 import { logAudit } from './helpers.js';
+import { invalidatePatient } from '../patientCache.js';
 
 export async function addMeasurement(patientId, record) {
   // Get patient for age/pct calculation
@@ -23,6 +24,7 @@ export async function addMeasurement(patientId, record) {
     os_pct: osPct != null ? String(osPct) : null,
   }).select().single();
   if (error) { console.error('addMeasurement error:', error); return null; }
+  invalidatePatient(patientId);
   await logAudit('create', 'measurement', data.id, { patient_id: patientId });
   return {
     id: data.id, date: data.date, age: parseFloat(data.age),
@@ -35,6 +37,7 @@ export async function addMeasurement(patientId, record) {
 
 export async function deleteRecord(patientId, recordId) {
   await supabase.from('measurements').delete().eq('id', recordId);
+  invalidatePatient(patientId);
   await logAudit('delete', 'measurement', recordId, { patient_id: patientId });
 }
 
@@ -74,6 +77,7 @@ export async function importMeasurements(patientId, records) {
     }
   }
 
+  invalidatePatient(patientId);
   await logAudit('import', 'measurements', patientId, { count: rows.length });
   return { success: rows.length, errors };
 }
