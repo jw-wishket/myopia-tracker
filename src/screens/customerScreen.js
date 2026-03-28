@@ -8,19 +8,31 @@ import { renderGrowthChart, initGrowthChart, destroyChart } from '../components/
 import { renderProgressReport } from '../components/progressReport.js';
 import { renderRateTable } from '../components/rateTable.js';
 import { openModal } from '../components/modal.js';
+import { openPrintReport } from '../components/printReport.js';
 import { getState, setState } from '../state.js';
-import { getPatients, getPatientById, logout, changePassword, updateProfile } from '../data/dataService.js';
-import { progressLabel } from '../utils.js';
+import { getPatients, getPatientById, logout, changePassword, updateProfile, getClinics } from '../data/dataService.js';
+import { progressLabel, formatDate } from '../utils.js';
 
 export async function renderCustomerScreen(container) {
   const user = getState().currentUser;
   if (!user) return;
 
-  const patients = await getPatients(user.clinicId);
   const children = user.children || [];
 
-  // Match children to patients by name+birthDate
-  const matchedPatients = children.map(c => patients.find(p => p.name === c.name && p.birthDate === c.birthDate)).filter(Boolean);
+  // Multi-clinic support: fetch patients across all unique clinic IDs from children
+  const childClinicIds = [...new Set(children.map(c => c.clinicId).filter(Boolean))];
+  const clinicIds = childClinicIds.length > 0 ? childClinicIds : (user.clinicId ? [user.clinicId] : []);
+
+  let allPatients = [];
+  for (const cid of clinicIds) {
+    const pts = await getPatients(cid);
+    allPatients = allPatients.concat(pts);
+  }
+
+  // Match with fallback - try name+birthDate across all clinics
+  const matchedPatients = children.map(c => {
+    return allPatients.find(p => p.name === c.name && p.birthDate === c.birthDate);
+  }).filter(Boolean);
   const selectedPatient = getState().currentPatient || matchedPatients[0] || null;
 
   const nav = renderNavbar({ title: '근시관리 트래커', subtitle: '보호자', user });
@@ -34,15 +46,18 @@ export async function renderCustomerScreen(container) {
           <button id="manageChildrenBtn" class="px-3 py-1.5 text-xs font-medium text-primary-600 border border-primary-200 rounded-lg hover:bg-primary-50 transition-colors">자녀 관리</button>
         </div>
         <div class="flex gap-3 overflow-x-auto pb-2">
-          ${matchedPatients.map(p => `
+          ${matchedPatients.map(p => {
+            const lastMeasDate = p.records?.length > 0 ? p.records[p.records.length - 1].date : null;
+            return `
             <button class="child-select flex-shrink-0 flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-colors ${p.id === selectedPatient?.id ? 'border-primary-500 bg-primary-50' : 'border-slate-200 hover:border-slate-300'}" data-id="${p.id}">
               <div class="w-10 h-10 rounded-full ${p.id === selectedPatient?.id ? 'bg-primary-200 text-primary-700' : 'bg-slate-100 text-slate-500'} flex items-center justify-center text-sm font-semibold">${p.name.charAt(0)}</div>
               <div class="text-left">
                 <div class="text-sm font-medium text-slate-800">${p.name}</div>
                 <div class="text-xs text-slate-500">${p.birthDate} · ${p.gender === 'male' ? '남' : '여'}</div>
+                ${lastMeasDate ? `<div class="text-[10px] text-primary-500 mt-0.5">최근 측정: ${formatDate(lastMeasDate)}</div>` : ''}
               </div>
             </button>
-          `).join('')}
+          `}).join('')}
           ${matchedPatients.length === 0 ? '<p class="text-sm text-slate-400">연결된 자녀가 없습니다</p>' : ''}
         </div>
       </div>
@@ -70,6 +85,12 @@ export async function renderCustomerScreen(container) {
       }
     });
   });
+
+  // Print report
+  const customerPrintBtn = container.querySelector('#customerPrintReportBtn');
+  if (customerPrintBtn && selectedPatient) {
+    customerPrintBtn.addEventListener('click', () => openPrintReport(selectedPatient));
+  }
 
   // Save growth chart as image
   const saveChartBtn = container.querySelector('.save-customer-chart-btn');
@@ -110,11 +131,20 @@ export async function renderCustomerScreen(container) {
 
 function renderChildDetail(patient) {
   const prog = progressLabel(patient.records);
+  const lastMeasDate = patient.records?.length > 0 ? patient.records[patient.records.length - 1].date : null;
+  const isRecent = lastMeasDate && (new Date() - new Date(lastMeasDate)) < 7 * 24 * 60 * 60 * 1000;
   return `
-    ${renderPatientInfoBar(patient)}
+    <div class="flex items-center gap-2">
+      <div class="flex-1">${renderPatientInfoBar(patient)}</div>
+      ${isRecent ? '<span class="px-2 py-0.5 bg-primary-100 text-primary-600 rounded-full text-[10px] font-medium">NEW</span>' : ''}
+    </div>
 
     <div class="flex items-center justify-between">
       <span class="text-sm ${prog.cls}">${prog.text}</span>
+      <button id="customerPrintReportBtn" class="px-3 py-1.5 text-xs font-medium text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50 hover:text-primary-600 transition-colors flex items-center gap-1">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+        리포트 출력
+      </button>
     </div>
 
     <div class="bg-white rounded-2xl border border-slate-200 p-5">
@@ -156,22 +186,26 @@ function renderChildDetail(patient) {
   `;
 }
 
-function openChildrenManagementModal(container, user, children) {
+async function openChildrenManagementModal(container, user, children) {
   const childrenCopy = children.map(c => ({ ...c }));
+  const clinics = await getClinics();
+  const clinicOptions = clinics.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
 
   function renderChildrenList() {
-    return childrenCopy.map((c, i) => `
+    return childrenCopy.map((c, i) => {
+      const clinicName = clinics.find(cl => cl.id === c.clinicId)?.name || '';
+      return `
       <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
         <div>
           <div class="text-sm font-medium text-slate-800">${c.name}</div>
-          <div class="text-xs text-slate-500">${c.birthDate}</div>
+          <div class="text-xs text-slate-500">${c.birthDate}${clinicName ? ` · ${clinicName}` : ''}</div>
         </div>
         <div class="flex gap-2">
           <button class="child-edit-btn px-2 py-1 text-xs text-primary-600 border border-primary-200 rounded-lg hover:bg-primary-50" data-index="${i}">수정</button>
           <button class="child-delete-btn px-2 py-1 text-xs text-red-500 border border-red-200 rounded-lg hover:bg-red-50" data-index="${i}">삭제</button>
         </div>
       </div>
-    `).join('');
+    `}).join('');
   }
 
   const modal = openModal('자녀 관리', `
@@ -184,6 +218,10 @@ function openChildrenManagementModal(container, user, children) {
         <div class="space-y-2">
           <input type="text" id="newChildName" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-primary-400" placeholder="이름">
           <input type="date" id="newChildBirth" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-primary-400">
+          <select id="newChildClinic" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:border-primary-400">
+            <option value="">안과 선택 (선택)</option>
+            ${clinicOptions}
+          </select>
           <button id="addChildBtn" class="w-full py-2.5 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 transition-colors">추가</button>
         </div>
       </div>
@@ -234,6 +272,7 @@ function openChildrenManagementModal(container, user, children) {
   modal.element.querySelector('#addChildBtn').addEventListener('click', async () => {
     const nameInput = modal.element.querySelector('#newChildName');
     const birthInput = modal.element.querySelector('#newChildBirth');
+    const clinicSelect = modal.element.querySelector('#newChildClinic');
     const name = nameInput.value.trim();
     const birthDate = birthInput.value;
     const msgEl = modal.element.querySelector('#childMgmtMsg');
@@ -244,7 +283,7 @@ function openChildrenManagementModal(container, user, children) {
       return;
     }
 
-    childrenCopy.push({ name, birthDate });
+    childrenCopy.push({ name, birthDate, clinicId: clinicSelect.value || user.clinicId });
     const ok = await updateProfile({ children: childrenCopy });
     if (ok) {
       const updatedUser = { ...getState().currentUser, children: [...childrenCopy] };

@@ -16,6 +16,7 @@ import { getPatients, searchPatients, getPatientById, addPatient, addMeasurement
 import { renderPatientNotes } from '../components/patientNotes.js';
 import { todayStr, calcAge, progressLabel } from '../utils.js';
 import { showSyncStatus } from '../components/syncStatus.js';
+import { openPrintReport } from '../components/printReport.js';
 
 let currentSearchQuery = '';
 let measurementFilter = 'all';
@@ -175,6 +176,7 @@ function renderPatientContent(patient, patients) {
             가져오기
           </button>
           <button id="exportCsvBtn" class="px-4 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition-colors">CSV</button>
+          <button id="printReportBtn" class="px-4 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition-colors">리포트</button>
           <button id="deletePatientBtn" class="px-3 py-2 border border-red-200 rounded-lg text-sm text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors flex items-center gap-1.5" title="환자 삭제">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
           </button>
@@ -376,6 +378,12 @@ function bindDoctorEvents(container, user, patients, selectedPatient) {
   const csvBtn = container.querySelector('#exportCsvBtn');
   if (csvBtn && selectedPatient) {
     csvBtn.addEventListener('click', () => exportCSV(selectedPatient));
+  }
+
+  // Print report
+  const printBtn = container.querySelector('#printReportBtn');
+  if (printBtn && selectedPatient) {
+    printBtn.addEventListener('click', () => openPrintReport(selectedPatient));
   }
 
   // Delete patient
