@@ -293,7 +293,7 @@ function renderPatientsList(allPatients, clinics) {
               <tr class="patient-row border-b border-slate-100 hover:bg-slate-50" data-name="${p.name}">
                 <td class="px-4 py-3 text-sm text-slate-800 font-medium">${p.name}</td>
                 <td class="px-4 py-3 text-sm text-slate-500">${formatDate(p.birthDate)}</td>
-                <td class="px-4 py-3 text-sm text-slate-500">${p.gender === 'M' ? '남' : '여'}</td>
+                <td class="px-4 py-3 text-sm text-slate-500">${p.gender === 'male' ? '남' : '여'}</td>
                 <td class="px-4 py-3 text-sm text-slate-500">${p.regNo || '-'}</td>
                 <td class="px-4 py-3 text-sm text-slate-500">${clinicMap[p.clinicId] || '-'}</td>
               </tr>
