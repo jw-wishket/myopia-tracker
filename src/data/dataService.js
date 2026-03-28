@@ -261,6 +261,53 @@ export async function getStats() {
   };
 }
 
+// Admin: get all doctors
+export async function getDoctors() {
+  const { data } = await supabase.from('profiles').select('*').eq('role', 'doctor').order('name');
+  return (data || []).map(d => ({
+    id: d.id, email: d.email, name: d.name, approved: d.approved,
+    clinicId: d.clinic_id, clinicName: d.clinic_name, createdAt: d.created_at,
+  }));
+}
+
+// Admin: get all patients (across all clinics)
+export async function getAllPatients() {
+  const { data } = await supabase.from('patients').select('*').order('name');
+  return (data || []).map(p => ({
+    id: p.id, regNo: p.reg_no, name: p.name, birthDate: p.birth_date,
+    gender: p.gender, clinicId: p.clinic_id,
+  }));
+}
+
+// Admin: update clinic
+export async function updateClinic(id, name) {
+  const { error } = await supabase.from('clinics').update({ name }).eq('id', id);
+  if (error) { console.error('updateClinic error:', error); return false; }
+  return true;
+}
+
+// Admin: delete clinic
+export async function deleteClinic(id) {
+  const { error } = await supabase.from('clinics').delete().eq('id', id);
+  if (error) { console.error('deleteClinic error:', error); return false; }
+  return true;
+}
+
+// Admin: create clinic
+export async function adminCreateClinic(name) {
+  const { data: { user } } = await supabase.auth.getUser();
+  const { data, error } = await supabase.from('clinics').insert({ name, created_by: user?.id }).select().single();
+  if (error) { console.error('adminCreateClinic error:', error); return null; }
+  return { id: data.id, name: data.name, createdBy: data.created_by };
+}
+
+// Admin: revoke doctor approval
+export async function revokeDoctor(doctorId) {
+  const { error } = await supabase.from('profiles').update({ approved: false }).eq('id', doctorId);
+  if (error) { console.error('revokeDoctor error:', error); return false; }
+  return true;
+}
+
 export async function changePassword(newPassword) {
   const { error } = await supabase.auth.updateUser({ password: newPassword });
   if (error) throw error;

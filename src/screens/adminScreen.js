@@ -1,6 +1,11 @@
 import { renderNavbar } from '../components/navbar.js';
 import { getState } from '../state.js';
-import { getStats, getApprovalRequests, approveRequest, rejectRequest, getClinics } from '../data/dataService.js';
+import {
+  getStats, getApprovalRequests, approveRequest, rejectRequest,
+  getClinics, getDoctors, getAllPatients,
+  adminCreateClinic, updateClinic, deleteClinic, revokeDoctor,
+} from '../data/dataService.js';
+import { openModal } from '../components/modal.js';
 import { formatDate } from '../utils.js';
 
 let activeTab = 'approvals';
@@ -9,9 +14,10 @@ export async function renderAdminScreen(container) {
   const user = getState().currentUser;
   if (!user) return;
 
-  const stats = await getStats();
-  const requests = await getApprovalRequests();
-  const clinics = await getClinics();
+  const [stats, requests, clinics, doctors, allPatients] = await Promise.all([
+    getStats(), getApprovalRequests(), getClinics(), getDoctors(), getAllPatients(),
+  ]);
+
   const nav = renderNavbar({ title: '근시관리 트래커', subtitle: '관리자', user });
 
   container.innerHTML = `
@@ -24,19 +30,25 @@ export async function renderAdminScreen(container) {
         ${statCard('승인 대기', stats.pendingRequests + '건', stats.pendingRequests > 0 ? 'amber' : 'slate')}
       </div>
 
-      <div class="flex gap-2 border-b border-slate-200 pb-0">
+      <div class="flex gap-2 border-b border-slate-200 pb-0 overflow-x-auto">
         ${tabBtn('approvals', '승인 관리', requests.length)}
         ${tabBtn('clinics', '안과 관리')}
+        ${tabBtn('doctors', '의사 목록')}
+        ${tabBtn('patients', '환자 목록')}
       </div>
 
       <div id="adminTabContent">
-        ${activeTab === 'approvals' ? renderApprovals(requests) : renderClinics(clinics)}
+        ${activeTab === 'approvals' ? renderApprovals(requests) :
+          activeTab === 'clinics' ? renderClinics(clinics, doctors, allPatients) :
+          activeTab === 'doctors' ? renderDoctors(doctors) :
+          renderPatientsList(allPatients, clinics)}
       </div>
     </main>
   `;
 
   nav.bind(container);
 
+  // Tab switching
   container.querySelectorAll('.admin-tab').forEach(btn => {
     btn.addEventListener('click', async () => {
       activeTab = btn.dataset.tab;
@@ -44,26 +56,103 @@ export async function renderAdminScreen(container) {
     });
   });
 
+  // Approval buttons
   container.querySelectorAll('.approve-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
       await approveRequest(btn.dataset.id);
       await renderAdminScreen(container);
     });
   });
-
   container.querySelectorAll('.reject-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
       await rejectRequest(btn.dataset.id);
       await renderAdminScreen(container);
     });
   });
+
+  // Clinic management buttons
+  container.querySelector('#addClinicBtn')?.addEventListener('click', () => {
+    const modal = openModal('새 안과 등록', `
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">안과명</label>
+          <input id="newClinicName" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="안과명을 입력하세요" />
+        </div>
+        <div class="flex justify-end gap-2">
+          <button id="modalCancelBtn" class="px-4 py-2 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50">취소</button>
+          <button id="modalConfirmBtn" class="px-4 py-2 text-sm text-white bg-primary-600 rounded-lg hover:bg-primary-700">등록</button>
+        </div>
+      </div>
+    `);
+    modal.element.querySelector('#modalCancelBtn').addEventListener('click', () => modal.close());
+    modal.element.querySelector('#modalConfirmBtn').addEventListener('click', async () => {
+      const name = modal.element.querySelector('#newClinicName').value.trim();
+      if (!name) return;
+      await adminCreateClinic(name);
+      modal.close();
+      await renderAdminScreen(container);
+    });
+  });
+
+  container.querySelectorAll('.edit-clinic-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const clinicId = btn.dataset.id;
+      const currentName = btn.dataset.name;
+      const modal = openModal('안과명 수정', `
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">안과명</label>
+            <input id="editClinicName" type="text" value="${currentName}" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+          </div>
+          <div class="flex justify-end gap-2">
+            <button id="modalCancelBtn" class="px-4 py-2 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50">취소</button>
+            <button id="modalConfirmBtn" class="px-4 py-2 text-sm text-white bg-primary-600 rounded-lg hover:bg-primary-700">저장</button>
+          </div>
+        </div>
+      `);
+      modal.element.querySelector('#modalCancelBtn').addEventListener('click', () => modal.close());
+      modal.element.querySelector('#modalConfirmBtn').addEventListener('click', async () => {
+        const newName = modal.element.querySelector('#editClinicName').value.trim();
+        if (!newName) return;
+        await updateClinic(clinicId, newName);
+        modal.close();
+        await renderAdminScreen(container);
+      });
+    });
+  });
+
+  container.querySelectorAll('.delete-clinic-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('이 안과를 삭제하시겠습니까?')) return;
+      await deleteClinic(btn.dataset.id);
+      await renderAdminScreen(container);
+    });
+  });
+
+  // Doctor revoke buttons
+  container.querySelectorAll('.revoke-doctor-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('이 의사의 승인을 취소하시겠습니까?')) return;
+      await revokeDoctor(btn.dataset.id);
+      await renderAdminScreen(container);
+    });
+  });
+
+  // Patient search
+  const searchInput = container.querySelector('#patientSearchInput');
+  if (searchInput) {
+    searchInput.addEventListener('input', () => {
+      const query = searchInput.value.trim().toLowerCase();
+      const rows = container.querySelectorAll('.patient-row');
+      rows.forEach(row => {
+        const name = row.dataset.name?.toLowerCase() || '';
+        row.style.display = name.includes(query) ? '' : 'none';
+      });
+    });
+  }
 }
 
 function statCard(label, value, color) {
-  const colors = {
-    blue: 'bg-blue-50 text-blue-600', emerald: 'bg-emerald-50 text-emerald-600',
-    purple: 'bg-purple-50 text-purple-600', amber: 'bg-amber-50 text-amber-600', slate: 'bg-slate-50 text-slate-600',
-  };
   return `
     <div class="bg-white rounded-xl border border-slate-200 p-4">
       <div class="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">${label}</div>
@@ -75,7 +164,7 @@ function statCard(label, value, color) {
 function tabBtn(id, label, count) {
   const isActive = activeTab === id;
   return `
-    <button class="admin-tab px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${isActive ? 'border-primary-600 text-primary-600' : 'border-transparent text-slate-500 hover:text-slate-700'}" data-tab="${id}">
+    <button class="admin-tab px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${isActive ? 'border-primary-600 text-primary-600' : 'border-transparent text-slate-500 hover:text-slate-700'}" data-tab="${id}">
       ${label}${count ? ` <span class="ml-1 px-1.5 py-0.5 text-xs rounded-full ${isActive ? 'bg-primary-100 text-primary-700' : 'bg-slate-100 text-slate-500'}">${count}</span>` : ''}
     </button>
   `;
@@ -102,16 +191,113 @@ function renderApprovals(requests) {
   `;
 }
 
-function renderClinics(clinics) {
+function renderClinics(clinics, doctors, allPatients) {
   return `
+    <div class="flex justify-end mb-3">
+      <button id="addClinicBtn" class="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors flex items-center gap-1.5">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        새 안과 등록
+      </button>
+    </div>
     <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
       <table class="w-full">
         <thead><tr class="border-b border-slate-200">
           <th class="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase">안과명</th>
-          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase">등록자</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase">등록 의사 수</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase">환자 수</th>
+          <th class="px-4 py-3 text-right text-xs font-semibold text-slate-400 uppercase">관리</th>
         </tr></thead>
         <tbody>
-          ${clinics.map(c => `<tr class="border-b border-slate-100 hover:bg-slate-50"><td class="px-4 py-3 text-sm text-slate-800">${c.name}</td><td class="px-4 py-3 text-sm text-slate-500">${c.createdBy || '-'}</td></tr>`).join('')}
+          ${clinics.length === 0 ? '<tr><td colspan="4" class="px-4 py-6 text-center text-sm text-slate-400">등록된 안과가 없습니다</td></tr>' :
+            clinics.map(c => {
+              const doctorCount = doctors.filter(d => d.clinicId === c.id).length;
+              const patientCount = allPatients.filter(p => p.clinicId === c.id).length;
+              return `
+                <tr class="border-b border-slate-100 hover:bg-slate-50">
+                  <td class="px-4 py-3 text-sm text-slate-800">${c.name}</td>
+                  <td class="px-4 py-3 text-sm text-slate-500">${doctorCount}명</td>
+                  <td class="px-4 py-3 text-sm text-slate-500">${patientCount}명</td>
+                  <td class="px-4 py-3 text-right">
+                    <div class="flex justify-end gap-1">
+                      <button class="edit-clinic-btn p-1.5 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors" data-id="${c.id}" data-name="${c.name}" title="수정">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                      </button>
+                      <button class="delete-clinic-btn p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" data-id="${c.id}" title="삭제">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderDoctors(doctors) {
+  return `
+    <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <table class="w-full">
+        <thead><tr class="border-b border-slate-200">
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase">이름</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase">이메일</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase">소속 안과</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase">상태</th>
+          <th class="px-4 py-3 text-right text-xs font-semibold text-slate-400 uppercase">관리</th>
+        </tr></thead>
+        <tbody>
+          ${doctors.length === 0 ? '<tr><td colspan="5" class="px-4 py-6 text-center text-sm text-slate-400">등록된 의사가 없습니다</td></tr>' :
+            doctors.map(d => `
+              <tr class="border-b border-slate-100 hover:bg-slate-50">
+                <td class="px-4 py-3 text-sm text-slate-800 font-medium">${d.name || '-'}</td>
+                <td class="px-4 py-3 text-sm text-slate-500">${d.email || '-'}</td>
+                <td class="px-4 py-3 text-sm text-slate-500">${d.clinicName || '-'}</td>
+                <td class="px-4 py-3 text-sm">
+                  ${d.approved
+                    ? '<span class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-emerald-50 text-emerald-700">승인됨</span>'
+                    : '<span class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-amber-50 text-amber-700">미승인</span>'}
+                </td>
+                <td class="px-4 py-3 text-right">
+                  ${d.approved
+                    ? `<button class="revoke-doctor-btn px-3 py-1.5 text-xs font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors" data-id="${d.id}">승인 취소</button>`
+                    : ''}
+                </td>
+              </tr>
+            `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderPatientsList(allPatients, clinics) {
+  const clinicMap = Object.fromEntries(clinics.map(c => [c.id, c.name]));
+  return `
+    <div class="mb-3">
+      <input id="patientSearchInput" type="text" placeholder="환자 이름으로 검색..." class="w-full sm:w-72 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+    </div>
+    <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <table class="w-full">
+        <thead><tr class="border-b border-slate-200">
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase">이름</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase">생년월일</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase">성별</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase">등록번호</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase">소속 안과</th>
+        </tr></thead>
+        <tbody>
+          ${allPatients.length === 0 ? '<tr><td colspan="5" class="px-4 py-6 text-center text-sm text-slate-400">등록된 환자가 없습니다</td></tr>' :
+            allPatients.map(p => `
+              <tr class="patient-row border-b border-slate-100 hover:bg-slate-50" data-name="${p.name}">
+                <td class="px-4 py-3 text-sm text-slate-800 font-medium">${p.name}</td>
+                <td class="px-4 py-3 text-sm text-slate-500">${formatDate(p.birthDate)}</td>
+                <td class="px-4 py-3 text-sm text-slate-500">${p.gender === 'M' ? '남' : '여'}</td>
+                <td class="px-4 py-3 text-sm text-slate-500">${p.regNo || '-'}</td>
+                <td class="px-4 py-3 text-sm text-slate-500">${clinicMap[p.clinicId] || '-'}</td>
+              </tr>
+            `).join('')}
         </tbody>
       </table>
     </div>
