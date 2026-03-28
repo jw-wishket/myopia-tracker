@@ -439,10 +439,6 @@ function openAddPatientModal(container, user) {
         </div>
       </div>
       <div>
-        <label class="block text-sm font-medium text-slate-600 mb-1.5">등록번호</label>
-        <input type="text" id="newPatientRegNo" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary-400" placeholder="자동 생성 (직접 입력 시 우선 적용)">
-      </div>
-      <div>
         <label class="block text-sm font-medium text-slate-600 mb-1.5">관리번호 <span class="text-slate-400 font-normal">(선택)</span></label>
         <input type="text" id="newPatientCustomRef" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary-400" placeholder="병원 내부 관리번호">
       </div>
@@ -458,11 +454,10 @@ function openAddPatientModal(container, user) {
     const name = modal.element.querySelector('#newPatientName').value.trim();
     const birthDate = modal.element.querySelector('#newPatientBirth').value;
     const gender = modal.element.querySelector('input[name="gender"]:checked').value;
-    const regNo = modal.element.querySelector('#newPatientRegNo').value.trim();
     const customRef = modal.element.querySelector('#newPatientCustomRef').value.trim();
     if (!name || !birthDate) return;
     showSyncStatus('syncing', '등록 중...');
-    const newPatient = await addPatient({ name, birthDate, gender, regNo, customRef, clinicId: user.clinicId });
+    const newPatient = await addPatient({ name, birthDate, gender, clinicId: user.clinicId, customRef });
     if (newPatient) {
       showSyncStatus('synced', '등록 완료');
     } else {
@@ -487,8 +482,8 @@ function openEditPatientModal(container, patient) {
         <input type="date" id="editPatientBirth" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary-400" value="${patient.birthDate}">
       </div>
       <div>
-        <label class="block text-sm font-medium text-slate-600 mb-1.5">등록번호</label>
-        <input type="text" id="editPatientRegNo" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary-400" value="${patient.regNo || ''}" placeholder="2024-001">
+        <label class="block text-sm font-medium text-slate-600 mb-1.5">관리번호 <span class="text-slate-400 font-normal">(선택)</span></label>
+        <input type="text" id="editPatientCustomRef" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary-400" value="${patient.customRef || ''}" placeholder="병원 내부 관리번호">
       </div>
       <div class="flex gap-3 pt-2">
         <button id="cancelEditPatient" class="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50">취소</button>
@@ -501,14 +496,14 @@ function openEditPatientModal(container, patient) {
   modal.element.querySelector('#confirmEditPatient').addEventListener('click', async () => {
     const name = modal.element.querySelector('#editPatientName').value.trim();
     const birthDate = modal.element.querySelector('#editPatientBirth').value;
-    const regNo = modal.element.querySelector('#editPatientRegNo').value.trim();
+    const customRef = modal.element.querySelector('#editPatientCustomRef').value.trim();
     if (!name || !birthDate) return;
 
     const saveBtn = modal.element.querySelector('#confirmEditPatient');
     saveBtn.disabled = true;
     saveBtn.textContent = '저장 중...';
 
-    const success = await updatePatient(patient.id, { name, birthDate, regNo });
+    const success = await updatePatient(patient.id, { name, birthDate, customRef });
     if (success) {
       setState({ currentPatient: await getPatientById(patient.id) });
       modal.close();

@@ -105,21 +105,22 @@ export async function getPatientById(id) {
 }
 
 export async function searchPatients(query, clinicId) {
-  let q = supabase.from('patients').select('*').or(`name.ilike.%${query}%,reg_no.ilike.%${query}%`);
+  let q = supabase.from('patients').select('*').or(`name.ilike.%${query}%,custom_ref.ilike.%${query}%`);
   if (clinicId) q = q.eq('clinic_id', clinicId);
   const { data, error } = await q.order('name');
   if (error || !data) return [];
   return Promise.all(data.map(p => fetchPatientFull(p)));
 }
 
-export async function searchPatientByInfo(name, birthDate, regNo) {
-  let query = supabase.from('patients').select('*').eq('name', name);
-  if (regNo) {
-    // 이름 + 등록번호로 검색
-    query = query.eq('reg_no', regNo);
-  } else {
-    // 이름 + 생년월일로 검색
+export async function searchPatientByInfo(name, birthDate, customRef, clinicId) {
+  if (!clinicId) return null;
+  let query = supabase.from('patients').select('*').eq('clinic_id', clinicId).eq('name', name);
+  if (customRef) {
+    query = query.eq('custom_ref', customRef);
+  } else if (birthDate) {
     query = query.eq('birth_date', birthDate);
+  } else {
+    return null;
   }
   const { data, error } = await query.limit(1).single();
   if (error || !data) return null;
@@ -127,16 +128,7 @@ export async function searchPatientByInfo(name, birthDate, regNo) {
 }
 
 export async function addPatient(patient) {
-  // Auto-generate reg_no if not provided
-  let regNo = patient.regNo;
-  if (!regNo) {
-    const { data: clinic } = await supabase.from('clinics').select('name').eq('id', patient.clinicId).single();
-    const prefix = clinic ? clinic.name.substring(0, 2) : 'MT';
-    const { count } = await supabase.from('patients').select('id', { count: 'exact', head: true }).eq('clinic_id', patient.clinicId);
-    const nextNum = String((count || 0) + 1).padStart(3, '0');
-    regNo = `${prefix}-${nextNum}`;
-  }
-
+  const regNo = 'P-' + Date.now();
   const { data, error } = await supabase.from('patients').insert({
     name: patient.name,
     birth_date: patient.birthDate,
@@ -157,7 +149,7 @@ export async function updatePatient(id, updates) {
   const dbUpdates = {};
   if (updates.name !== undefined) dbUpdates.name = updates.name;
   if (updates.birthDate !== undefined) dbUpdates.birth_date = updates.birthDate;
-  if (updates.regNo !== undefined) dbUpdates.reg_no = updates.regNo;
+  if (updates.customRef !== undefined) dbUpdates.custom_ref = updates.customRef;
   const { error } = await supabase.from('patients').update(dbUpdates).eq('id', id);
   if (error) { console.error('updatePatient error:', error); return false; }
   return true;
@@ -293,7 +285,7 @@ export async function getDoctors() {
 export async function getAllPatients() {
   const { data } = await supabase.from('patients').select('*').order('name');
   return (data || []).map(p => ({
-    id: p.id, regNo: p.reg_no, name: p.name, birthDate: p.birth_date,
+    id: p.id, name: p.name, birthDate: p.birth_date,
     gender: p.gender, clinicId: p.clinic_id, customRef: p.custom_ref,
   }));
 }

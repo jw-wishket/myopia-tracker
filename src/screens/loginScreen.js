@@ -1,11 +1,13 @@
 import { renderNavbar } from '../components/navbar.js';
-import { searchPatientByInfo, loginWithEmail, resetPassword } from '../data/dataService.js';
+import { searchPatientByInfo, loginWithEmail, resetPassword, getClinics } from '../data/dataService.js';
 import { setState } from '../state.js';
 import { navigate } from '../router.js';
 
 export let pendingRegistration = { email: '', password: '' };
 
 export async function renderLoginScreen(container) {
+  const clinics = await getClinics();
+  const clinicOptions = clinics.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
   const nav = renderNavbar({ title: '근시관리 트래커' });
 
   container.innerHTML = `
@@ -30,6 +32,13 @@ export async function renderLoginScreen(container) {
             <div id="tab-search" class="tab-content">
               <div class="space-y-4">
                 <div>
+                  <label class="block text-sm font-medium text-slate-600 mb-1.5">안과 선택</label>
+                  <select id="searchClinic" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 transition bg-white">
+                    <option value="">안과를 선택하세요</option>
+                    ${clinicOptions}
+                  </select>
+                </div>
+                <div>
                   <label class="block text-sm font-medium text-slate-600 mb-1.5">환자 이름</label>
                   <input type="text" id="searchName" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 transition" placeholder="홍길동">
                 </div>
@@ -38,9 +47,10 @@ export async function renderLoginScreen(container) {
                   <input type="date" id="searchBirth" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 transition">
                 </div>
                 <div>
-                  <label class="block text-sm font-medium text-slate-600 mb-1.5">등록번호</label>
-                  <input type="text" id="searchRegNo" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 transition" placeholder="2024-001">
+                  <label class="block text-sm font-medium text-slate-600 mb-1.5">관리번호</label>
+                  <input type="text" id="searchRegNo" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 transition" placeholder="병원 관리번호">
                 </div>
+                <p class="text-xs text-slate-400">* 안과 + 이름 필수, 생년월일 또는 관리번호 중 하나 입력</p>
                 <div id="searchError" class="hidden text-sm text-red-500 text-center"></div>
                 <button id="searchBtn" class="w-full py-2.5 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 transition-colors flex items-center justify-center gap-2">
                   조회하기
@@ -107,26 +117,31 @@ export async function renderLoginScreen(container) {
   });
 
   // Patient search: Enter key on any search field
-  container.querySelectorAll('#searchName, #searchBirth, #searchRegNo').forEach(el => {
+  container.querySelectorAll('#searchClinic, #searchName, #searchBirth, #searchRegNo').forEach(el => {
     el.addEventListener('keydown', (e) => { if (e.key === 'Enter') container.querySelector('#searchBtn').click(); });
   });
 
   // Patient search
   container.querySelector('#searchBtn').addEventListener('click', async () => {
+    const clinicId = container.querySelector('#searchClinic').value;
     const name = container.querySelector('#searchName').value.trim();
     const birth = container.querySelector('#searchBirth').value;
-    const regNo = container.querySelector('#searchRegNo').value.trim();
+    const customRef = container.querySelector('#searchRegNo').value.trim();
     const errEl = container.querySelector('#searchError');
     errEl.classList.add('hidden');
 
-    // 이름 필수 + (생년월일 또는 등록번호)
-    if (!name || (!birth && !regNo)) {
-      errEl.textContent = '이름과 생년월일 또는 이름과 등록번호를 입력해주세요';
+    if (!clinicId) {
+      errEl.textContent = '안과를 선택해주세요';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    if (!name || (!birth && !customRef)) {
+      errEl.textContent = '이름과 생년월일 또는 이름과 관리번호를 입력해주세요';
       errEl.classList.remove('hidden');
       return;
     }
 
-    const patient = await searchPatientByInfo(name, birth, regNo);
+    const patient = await searchPatientByInfo(name, birth, customRef, clinicId);
     if (patient) {
       setState({ currentPatient: patient });
       navigate('patient-result');
