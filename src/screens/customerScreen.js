@@ -29,10 +29,41 @@ export async function renderCustomerScreen(container) {
     allPatients = allPatients.concat(pts);
   }
 
-  // Match with fallback - try name+birthDate across all clinics
-  const matchedPatients = children.map(c => {
-    return allPatients.find(p => p.name === c.name && p.birthDate === c.birthDate);
-  }).filter(Boolean);
+  // Match children to patients - prefer patientId, fallback to name+birthDate
+  const matchedPatients = [];
+  for (const c of children) {
+    let patient = null;
+    if (c.patientId) {
+      // Direct ID link
+      patient = allPatients.find(p => p.id === c.patientId);
+    }
+    if (!patient) {
+      // Fallback: name + birthDate match
+      patient = allPatients.find(p => p.name === c.name && p.birthDate === c.birthDate);
+    }
+    if (patient) {
+      matchedPatients.push(patient);
+      // Auto-update child entry with patientId if missing
+      if (!c.patientId && patient.id) {
+        c.patientId = patient.id;
+      }
+    }
+  }
+
+  // If any children were updated with patientId, save back
+  const updatedChildren = children.map(c => {
+    const matched = matchedPatients.find(p => p.name === c.name && p.birthDate === c.birthDate);
+    if (matched && !c.patientId) {
+      return { ...c, patientId: matched.id };
+    }
+    return c;
+  });
+  if (JSON.stringify(updatedChildren) !== JSON.stringify(children)) {
+    await updateProfile({ children: updatedChildren });
+    user.children = updatedChildren;
+    setState({ currentUser: { ...user, children: updatedChildren } });
+  }
+
   const selectedPatient = getState().currentPatient || matchedPatients[0] || null;
 
   const nav = renderNavbar({ title: '근시관리 트래커', subtitle: '보호자', user });
@@ -283,7 +314,15 @@ async function openChildrenManagementModal(container, user, children) {
       return;
     }
 
-    childrenCopy.push({ name, birthDate, clinicId: clinicSelect.value || user.clinicId });
+    const childClinicId = clinicSelect.value || user.clinicId;
+    const newChild = { name, birthDate, clinicId: childClinicId };
+    // Try to find matching patient and store patientId
+    if (childClinicId) {
+      const pts = await getPatients(childClinicId);
+      const match = pts.find(p => p.name === name && p.birthDate === birthDate);
+      if (match) newChild.patientId = match.id;
+    }
+    childrenCopy.push(newChild);
     const ok = await updateProfile({ children: childrenCopy });
     if (ok) {
       const updatedUser = { ...getState().currentUser, children: [...childrenCopy] };

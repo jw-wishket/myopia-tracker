@@ -94,7 +94,15 @@ export async function getCurrentUser() {
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
   if (!profile) return null;
   if (profile.role === 'deactivated') return null;
-  return toProfileJS(profile);
+
+  // Fetch clinic name from clinics table (not the stale profiles.clinic_name)
+  let clinicName = profile.clinic_name;
+  if (profile.clinic_id) {
+    const { data: clinic } = await supabase.from('clinics').select('name').eq('id', profile.clinic_id).single();
+    if (clinic) clinicName = clinic.name;
+  }
+
+  return { ...toProfileJS(profile), clinicName };
 }
 
 // ============================================
@@ -210,6 +218,17 @@ export async function addPatient(patient) {
     return { error: '같은 이름과 생년월일의 환자가 이미 등록되어 있습니다.' };
   }
 
+  // Check duplicate custom_ref in same clinic
+  if (patient.customRef) {
+    const { data: existingRef } = await supabase.from('patients')
+      .select('id')
+      .eq('clinic_id', patient.clinicId)
+      .eq('custom_ref', patient.customRef);
+    if (existingRef && existingRef.length > 0) {
+      return { error: '같은 관리번호가 이미 사용 중입니다.' };
+    }
+  }
+
   const regNo = 'P-' + Date.now();
   const { data, error } = await supabase.from('patients').insert({
     name: patient.name,
@@ -230,6 +249,21 @@ export async function deletePatient(id) {
 }
 
 export async function updatePatient(id, updates) {
+  // Check custom_ref uniqueness if being updated
+  if (updates.customRef !== undefined && updates.customRef) {
+    const { data: patient } = await supabase.from('patients').select('clinic_id').eq('id', id).single();
+    if (patient) {
+      const { data: existing } = await supabase.from('patients')
+        .select('id')
+        .eq('clinic_id', patient.clinic_id)
+        .eq('custom_ref', updates.customRef)
+        .neq('id', id);
+      if (existing && existing.length > 0) {
+        return { error: '같은 관리번호가 이미 사용 중입니다.' };
+      }
+    }
+  }
+
   const dbUpdates = {};
   if (updates.name !== undefined) dbUpdates.name = updates.name;
   if (updates.birthDate !== undefined) dbUpdates.birth_date = updates.birthDate;
@@ -319,7 +353,7 @@ export async function updateTreatment(treatmentId, updates) {
 // Clinics
 // ============================================
 export async function getClinics() {
-  const { data } = await supabase.from('clinics').select('*').order('name');
+  const { data } = await supabase.from('clinics').select('*').eq('is_active', true).order('name');
   return (data || []).map(c => ({ id: c.id, name: c.name, createdBy: c.created_by }));
 }
 
@@ -403,8 +437,10 @@ export async function updateClinic(id, name) {
 
 // Admin: delete clinic
 export async function deleteClinic(id) {
-  const { error } = await supabase.from('clinics').delete().eq('id', id);
-  if (error) { console.error('deleteClinic error:', error); return false; }
+  // Soft delete - set is_active to false
+  const { error } = await supabase.from('clinics').update({ is_active: false }).eq('id', id);
+  if (error) { console.error('deactivateClinic error:', error); return false; }
+  await logAudit('deactivate', 'clinic', id);
   return true;
 }
 
@@ -469,6 +505,14 @@ export async function addTreatmentType(name, color = '#7c3aed') {
 }
 
 export async function updateTreatmentType(id, updates) {
+  // If renaming, update existing treatment records too
+  if (updates.name !== undefined) {
+    const { data: oldType } = await supabase.from('treatment_types').select('name').eq('id', id).single();
+    if (oldType && oldType.name !== updates.name) {
+      await supabase.from('treatments').update({ type: updates.name }).eq('type', oldType.name);
+    }
+  }
+
   const dbUpdates = {};
   if (updates.name !== undefined) dbUpdates.name = updates.name;
   if (updates.color !== undefined) dbUpdates.color = updates.color;
@@ -476,6 +520,7 @@ export async function updateTreatmentType(id, updates) {
   if (updates.sortOrder !== undefined) dbUpdates.sort_order = updates.sortOrder;
   const { error } = await supabase.from('treatment_types').update(dbUpdates).eq('id', id);
   if (error) { console.error('updateTreatmentType error:', error); return false; }
+  await logAudit('update', 'treatment_type', id, updates);
   return true;
 }
 

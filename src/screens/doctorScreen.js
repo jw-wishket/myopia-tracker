@@ -635,8 +635,12 @@ function openEditPatientModal(container, patient) {
     saveBtn.disabled = true;
     saveBtn.textContent = '저장 중...';
 
-    const success = await updatePatient(patient.id, { name, birthDate, customRef });
-    if (success) {
+    const result = await updatePatient(patient.id, { name, birthDate, customRef });
+    if (result && result.error) {
+      alert(result.error);
+      saveBtn.disabled = false;
+      saveBtn.textContent = '저장';
+    } else if (result) {
       setState({ currentPatient: await getPatientById(patient.id) });
       modal.close();
       await renderDoctorScreen(container);
