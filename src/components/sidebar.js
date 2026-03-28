@@ -1,4 +1,4 @@
-import { progressLabel } from '../utils.js';
+import { progressLabel, escapeHtml } from '../utils.js';
 
 export function renderSidebar(patients, selectedId, options = {}) {
   const { searchQuery = '', isSearching = false, totalCount = 0 } = options;
@@ -9,10 +9,10 @@ export function renderSidebar(patients, selectedId, options = {}) {
     return `
     <button class="sidebar-patient w-full text-left px-3 py-2.5 rounded-lg text-sm transition-colors ${p.id === selectedId ? 'bg-primary-50 text-primary-700 font-medium' : 'text-slate-600 hover:bg-slate-50'}" data-id="${p.id}">
       <div class="flex items-center gap-1.5">
-        <span class="font-medium">${p.name}</span>
+        <span class="font-medium">${escapeHtml(p.name)}</span>
         ${isRapid ? '<span class="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" title="빠른 진행"></span>' : ''}
       </div>
-      <div class="text-xs ${p.id === selectedId ? 'text-primary-500' : 'text-slate-400'}">${p.birthDate} · ${p.gender === 'male' ? '남' : '여'}${p.customRef ? ' · ' + p.customRef : ''}</div>
+      <div class="text-xs ${p.id === selectedId ? 'text-primary-500' : 'text-slate-400'}">${p.birthDate} · ${p.gender === 'male' ? '남' : '여'}${p.customRef ? ' · ' + escapeHtml(p.customRef) : ''}</div>
     </button>
   `;
   }).join('');

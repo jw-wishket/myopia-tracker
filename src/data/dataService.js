@@ -1,6 +1,10 @@
 import { supabase } from './supabaseClient.js';
 import { calcAge, calcPct } from '../utils.js';
 
+function escapeLike(str) {
+  return str.replace(/[%_\\]/g, c => '\\' + c);
+}
+
 // ============================================
 // Audit logging
 // ============================================
@@ -102,6 +106,11 @@ export async function getCurrentUser() {
     if (clinic) clinicName = clinic.name;
   }
 
+  if (profile.role === 'doctor' && !profile.approved) {
+    // Return limited profile for pending screen routing
+    return { ...toProfileJS(profile), clinicName, pending: true };
+  }
+
   return { ...toProfileJS(profile), clinicName };
 }
 
@@ -125,9 +134,22 @@ export async function getPatients(clinicId) {
 }
 
 export async function getRecentPatients(clinicId, limit = 10) {
+  // Get patient IDs for this clinic first
+  const { data: clinicPatientIds } = await supabase
+    .from('patients')
+    .select('id')
+    .eq('clinic_id', clinicId);
+
+  if (!clinicPatientIds || clinicPatientIds.length === 0) {
+    return [];
+  }
+
+  const ids = clinicPatientIds.map(p => p.id);
+
   const { data: recentMeasurements } = await supabase
     .from('measurements')
     .select('patient_id, date')
+    .in('patient_id', ids)
     .order('date', { ascending: false });
 
   if (!recentMeasurements || recentMeasurements.length === 0) {
@@ -145,7 +167,7 @@ export async function getRecentPatients(clinicId, limit = 10) {
     if (!seen.has(m.patient_id)) {
       seen.add(m.patient_id);
       recentIds.push(m.patient_id);
-      if (recentIds.length >= limit * 2) break;
+      if (recentIds.length >= limit) break;
     }
   }
 
@@ -157,14 +179,14 @@ export async function getRecentPatients(clinicId, limit = 10) {
 
   const patientMap = {};
   data.forEach(p => { patientMap[p.id] = p; });
-  const orderedRows = recentIds.map(id => patientMap[id]).filter(Boolean).slice(0, limit);
+  const orderedRows = recentIds.map(id => patientMap[id]).filter(Boolean);
   return Promise.all(orderedRows.map(p => fetchPatientFull(p)));
 }
 
 export async function searchPatientsLight(query, clinicId) {
   const { data } = await supabase.from('patients').select('id, name, birth_date, gender, custom_ref')
     .eq('clinic_id', clinicId)
-    .or(`name.ilike.%${query}%,custom_ref.ilike.%${query}%`)
+    .or(`name.ilike.%${escapeLike(query)}%,custom_ref.ilike.%${escapeLike(query)}%`)
     .order('name')
     .limit(20);
   return (data || []).map(p => ({
@@ -185,7 +207,7 @@ export async function getPatientById(id) {
 }
 
 export async function searchPatients(query, clinicId) {
-  let q = supabase.from('patients').select('*').or(`name.ilike.%${query}%,custom_ref.ilike.%${query}%`);
+  let q = supabase.from('patients').select('*').or(`name.ilike.%${escapeLike(query)}%,custom_ref.ilike.%${escapeLike(query)}%`);
   if (clinicId) q = q.eq('clinic_id', clinicId);
   const { data, error } = await q.order('name');
   if (error || !data) return [];
@@ -193,18 +215,35 @@ export async function searchPatients(query, clinicId) {
 }
 
 export async function searchPatientByInfo(name, birthDate, customRef, clinicId) {
-  if (!clinicId) return null;
-  let query = supabase.from('patients').select('*').eq('clinic_id', clinicId).eq('name', name);
-  if (customRef) {
-    query = query.eq('custom_ref', customRef);
-  } else if (birthDate) {
-    query = query.eq('birth_date', birthDate);
-  } else {
-    return null;
-  }
-  const { data, error } = await query.limit(1).single();
+  const { data, error } = await supabase.rpc('search_patient_public', {
+    p_name: name,
+    p_birth_date: birthDate || null,
+    p_clinic_id: clinicId,
+    p_custom_ref: customRef || null,
+  });
   if (error || !data) return null;
-  return fetchPatientFull(data);
+
+  // Convert RPC result to JS format
+  return {
+    id: data.id,
+    name: data.name,
+    birthDate: data.birth_date,
+    gender: data.gender,
+    regNo: data.reg_no,
+    customRef: data.custom_ref,
+    clinicId: data.clinic_id,
+    records: (data.measurements || []).map(m => ({
+      id: m.id, date: m.date, age: parseFloat(m.age),
+      odAL: parseFloat(m.od_al), osAL: parseFloat(m.os_al),
+      odSE: m.od_se != null ? parseFloat(m.od_se) : null,
+      osSE: m.os_se != null ? parseFloat(m.os_se) : null,
+      odPct: m.od_pct, osPct: m.os_pct,
+    })),
+    treatments: (data.treatments || []).map(t => ({
+      id: t.id, type: t.type, date: t.date,
+      age: parseFloat(t.age), endDate: t.end_date,
+    })),
+  };
 }
 
 export async function addPatient(patient) {

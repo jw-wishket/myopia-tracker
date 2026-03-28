@@ -14,7 +14,7 @@ import { openModal } from '../components/modal.js';
 import { getState, setState } from '../state.js';
 import { getPatients, searchPatients, getPatientById, addPatient, addMeasurement, deleteRecord, addTreatment, removeTreatment, updateTreatment, deletePatient, updatePatient, logout, resetData, changePassword, getNotes, addNote, deleteNote, importMeasurements, exportClinicData, getOverduePatients, getTreatmentTypes, addTreatmentType, getRecentPatients, searchPatientsLight, getPatientCount } from '../data/dataService.js';
 import { renderPatientNotes } from '../components/patientNotes.js';
-import { todayStr, calcAge, progressLabel } from '../utils.js';
+import { todayStr, calcAge, progressLabel, escapeHtml } from '../utils.js';
 import { showSyncStatus } from '../components/syncStatus.js';
 import { openPrintReport } from '../components/printReport.js';
 
@@ -91,7 +91,7 @@ export async function renderDoctorScreen(container) {
       <div class="text-sm font-medium text-amber-800 mb-2">⚠ 추적 검사 필요 환자 (${overduePatients.length}명)</div>
       <div class="flex flex-wrap gap-2">
         ${overduePatients.map(p => `
-          <button class="overdue-patient px-3 py-1.5 bg-white border border-amber-200 rounded-lg text-xs text-amber-700 hover:bg-amber-100" data-id="${p.id}">${p.name} (${p.nextVisitDate})</button>
+          <button class="overdue-patient px-3 py-1.5 bg-white border border-amber-200 rounded-lg text-xs text-amber-700 hover:bg-amber-100" data-id="${p.id}">${escapeHtml(p.name)} (${p.nextVisitDate})</button>
         `).join('')}
       </div>
     </div>
@@ -157,7 +157,7 @@ function renderPatientContent(patient, patients) {
     <div class="md:hidden overflow-x-auto px-4 py-3 flex gap-2 border-b border-slate-200 bg-white">
       <input type="text" id="mobileSearch" class="flex-shrink-0 w-32 px-3 py-1.5 border border-slate-200 rounded-full text-xs focus:outline-none" placeholder="검색...">
       ${patients.map(p => `
-        <button class="mobile-patient-chip flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap ${p.id === patient.id ? 'bg-primary-600 text-white' : 'bg-slate-100 text-slate-600'}" data-id="${p.id}">${p.name}</button>
+        <button class="mobile-patient-chip flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap ${p.id === patient.id ? 'bg-primary-600 text-white' : 'bg-slate-100 text-slate-600'}" data-id="${p.id}">${escapeHtml(p.name)}</button>
       `).join('')}
       <button id="mobileAddBtn" class="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium text-primary-600 border border-dashed border-primary-300">+ 추가</button>
     </div>
@@ -607,7 +607,7 @@ function openEditPatientModal(container, patient) {
     <div class="space-y-4">
       <div>
         <label class="block text-sm font-medium text-slate-600 mb-1.5">환자 이름</label>
-        <input type="text" id="editPatientName" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary-400" value="${patient.name}">
+        <input type="text" id="editPatientName" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary-400" value="${escapeHtml(patient.name)}">
       </div>
       <div>
         <label class="block text-sm font-medium text-slate-600 mb-1.5">생년월일</label>
@@ -615,7 +615,7 @@ function openEditPatientModal(container, patient) {
       </div>
       <div>
         <label class="block text-sm font-medium text-slate-600 mb-1.5">관리번호 <span class="text-slate-400 font-normal">(선택)</span></label>
-        <input type="text" id="editPatientCustomRef" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary-400" value="${patient.customRef || ''}" placeholder="병원 내부 관리번호">
+        <input type="text" id="editPatientCustomRef" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary-400" value="${escapeHtml(patient.customRef)}" placeholder="병원 내부 관리번호">
       </div>
       <div class="flex gap-3 pt-2">
         <button id="cancelEditPatient" class="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50">취소</button>
@@ -661,7 +661,7 @@ function openAddMeasurementModal(container, patient) {
   ` : '';
   const modal = openModal('측정 입력', `
     <div class="space-y-4">
-      <div class="px-3 py-2 bg-primary-50 rounded-lg text-sm text-primary-700 font-medium">${patient.name} · ${calcAge(patient.birthDate, new Date())}세</div>
+      <div class="px-3 py-2 bg-primary-50 rounded-lg text-sm text-primary-700 font-medium">${escapeHtml(patient.name)} · ${calcAge(patient.birthDate, new Date())}세</div>
       ${lastRecordHtml}
       <div>
         <label class="block text-sm font-medium text-slate-600 mb-1.5">측정일</label>
@@ -753,7 +753,7 @@ function openImportCsvModal(container, patient) {
 
   const modal = openModal('데이터 가져오기', `
     <div class="space-y-4">
-      <div class="px-3 py-2 bg-primary-50 rounded-lg text-sm text-primary-700 font-medium">${patient.name}</div>
+      <div class="px-3 py-2 bg-primary-50 rounded-lg text-sm text-primary-700 font-medium">${escapeHtml(patient.name)}</div>
       <div class="p-3 bg-slate-50 rounded-lg">
         <p class="text-xs text-slate-600 font-medium mb-1">CSV 형식:</p>
         <p class="text-xs text-slate-500 font-mono">날짜,나이,OD_AL,OS_AL,OD_SE,OS_SE</p>

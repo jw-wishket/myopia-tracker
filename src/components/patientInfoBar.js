@@ -1,4 +1,4 @@
-import { calcAge } from '../utils.js';
+import { calcAge, escapeHtml } from '../utils.js';
 
 export function renderPatientInfoBar(patient) {
   if (!patient) return '';
@@ -7,14 +7,14 @@ export function renderPatientInfoBar(patient) {
 
   return `
     <div class="flex items-center gap-3 flex-wrap px-4 py-3 bg-primary-50 rounded-xl border border-primary-100">
-      <span class="text-lg font-semibold text-primary-700">${patient.name}</span>
+      <span class="text-lg font-semibold text-primary-700">${escapeHtml(patient.name)}</span>
       <div class="flex items-center gap-2 text-sm text-slate-500">
         <span>${patient.birthDate}</span>
         <span>·</span>
         <span>${genderLabel}</span>
         <span>·</span>
         <span>${age}세</span>
-        ${patient.customRef ? `<span>·</span><span class="text-xs text-slate-400">관리: ${patient.customRef}</span>` : ''}
+        ${patient.customRef ? `<span>·</span><span class="text-xs text-slate-400">관리: ${escapeHtml(patient.customRef)}</span>` : ''}
       </div>
     </div>
   `;

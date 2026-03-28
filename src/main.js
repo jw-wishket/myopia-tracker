@@ -25,10 +25,9 @@ registerRoute('pending', renderPendingScreen);
 // Auth-guarded routes
 function authGuard(renderFn) {
   return async (container) => {
-    if (!getState().currentUser) {
-      navigate('login');
-      return;
-    }
+    const user = getState().currentUser;
+    if (!user) { navigate('login'); return; }
+    if (user.pending) { navigate('pending'); return; }
     return await renderFn(container);
   };
 }
@@ -75,8 +74,12 @@ registerRoute('patient-result', (container) => {
   const user = await getCurrentUser();
   if (user) {
     setState({ currentUser: user });
-    const route = user.role === 'admin' ? 'admin' : user.role === 'customer' ? 'customer' : 'doctor';
-    window.location.hash = route;
+    if (user.pending) {
+      window.location.hash = 'pending';
+    } else {
+      const route = user.role === 'admin' ? 'admin' : user.role === 'customer' ? 'customer' : 'doctor';
+      window.location.hash = route;
+    }
   }
   startRouter(document.getElementById('app'));
   document.getElementById('loadingOverlay')?.classList.add('hidden');

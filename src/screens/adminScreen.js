@@ -7,7 +7,7 @@ import {
   getTreatmentTypes, addTreatmentType, updateTreatmentType, deleteTreatmentType,
 } from '../data/dataService.js';
 import { openModal } from '../components/modal.js';
-import { formatDate } from '../utils.js';
+import { formatDate, escapeHtml } from '../utils.js';
 
 let activeTab = 'approvals';
 
@@ -222,10 +222,10 @@ function renderApprovals(requests) {
     <div class="space-y-3">
       ${requests.map(r => `
         <div class="bg-white rounded-xl border border-slate-200 p-4 flex flex-col sm:flex-row sm:items-center gap-4">
-          <div class="w-10 h-10 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center text-sm font-semibold flex-shrink-0">${r.name.charAt(0)}</div>
+          <div class="w-10 h-10 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center text-sm font-semibold flex-shrink-0">${escapeHtml(r.name.charAt(0))}</div>
           <div class="flex-1 min-w-0">
-            <div class="font-medium text-slate-800">${r.name}</div>
-            <div class="text-sm text-slate-500">${r.email} · ${r.clinicName} · ${formatDate(r.createdAt)}</div>
+            <div class="font-medium text-slate-800">${escapeHtml(r.name)}</div>
+            <div class="text-sm text-slate-500">${escapeHtml(r.email)} · ${escapeHtml(r.clinicName)} · ${formatDate(r.createdAt)}</div>
           </div>
           <div class="flex gap-2">
             <button class="approve-btn px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors" data-id="${r.id}">승인</button>
@@ -260,12 +260,12 @@ function renderClinics(clinics, doctors, allPatients) {
               const patientCount = allPatients.filter(p => p.clinicId === c.id).length;
               return `
                 <tr class="border-b border-slate-100 hover:bg-slate-50">
-                  <td class="px-4 py-3 text-sm text-slate-800">${c.name}</td>
+                  <td class="px-4 py-3 text-sm text-slate-800">${escapeHtml(c.name)}</td>
                   <td class="px-4 py-3 text-sm text-slate-500">${doctorCount}명</td>
                   <td class="px-4 py-3 text-sm text-slate-500">${patientCount}명</td>
                   <td class="px-4 py-3 text-right">
                     <div class="flex justify-end gap-1">
-                      <button class="edit-clinic-btn p-1.5 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors" data-id="${c.id}" data-name="${c.name}" title="수정">
+                      <button class="edit-clinic-btn p-1.5 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors" data-id="${c.id}" data-name="${escapeHtml(c.name)}" title="수정">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
                       </button>
                       <button class="delete-clinic-btn p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" data-id="${c.id}" title="비활성화">
@@ -297,9 +297,9 @@ function renderDoctors(doctors) {
           ${doctors.length === 0 ? '<tr><td colspan="5" class="px-4 py-6 text-center text-sm text-slate-400">등록된 의사가 없습니다</td></tr>' :
             doctors.map(d => `
               <tr class="border-b border-slate-100 hover:bg-slate-50">
-                <td class="px-4 py-3 text-sm text-slate-800 font-medium">${d.name || '-'}</td>
-                <td class="px-4 py-3 text-sm text-slate-500">${d.email || '-'}</td>
-                <td class="px-4 py-3 text-sm text-slate-500">${d.clinicName || '-'}</td>
+                <td class="px-4 py-3 text-sm text-slate-800 font-medium">${escapeHtml(d.name) || '-'}</td>
+                <td class="px-4 py-3 text-sm text-slate-500">${escapeHtml(d.email) || '-'}</td>
+                <td class="px-4 py-3 text-sm text-slate-500">${escapeHtml(d.clinicName) || '-'}</td>
                 <td class="px-4 py-3 text-sm">
                   ${d.approved
                     ? '<span class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-emerald-50 text-emerald-700">승인됨</span>'
@@ -339,12 +339,12 @@ function renderPatientsList(allPatients, clinics) {
         <tbody>
           ${allPatients.length === 0 ? '<tr><td colspan="5" class="px-4 py-6 text-center text-sm text-slate-400">등록된 환자가 없습니다</td></tr>' :
             allPatients.map(p => `
-              <tr class="patient-row border-b border-slate-100 hover:bg-slate-50" data-name="${p.name}">
-                <td class="px-4 py-3 text-sm text-slate-800 font-medium">${p.name}</td>
+              <tr class="patient-row border-b border-slate-100 hover:bg-slate-50" data-name="${escapeHtml(p.name)}">
+                <td class="px-4 py-3 text-sm text-slate-800 font-medium">${escapeHtml(p.name)}</td>
                 <td class="px-4 py-3 text-sm text-slate-500">${formatDate(p.birthDate)}</td>
                 <td class="px-4 py-3 text-sm text-slate-500">${p.gender === 'male' ? '남' : '여'}</td>
-                <td class="px-4 py-3 text-sm text-slate-500">${p.customRef || '-'}</td>
-                <td class="px-4 py-3 text-sm text-slate-500">${clinicMap[p.clinicId] || '-'}</td>
+                <td class="px-4 py-3 text-sm text-slate-500">${escapeHtml(p.customRef) || '-'}</td>
+                <td class="px-4 py-3 text-sm text-slate-500">${escapeHtml(clinicMap[p.clinicId]) || '-'}</td>
               </tr>
             `).join('')}
         </tbody>
@@ -374,7 +374,7 @@ function renderTreatmentTypesTab(types) {
               types.map(t => `
               <tr class="border-b border-slate-100 hover:bg-slate-50">
                 <td class="px-4 py-3"><span class="inline-block w-4 h-4 rounded-full" style="background:${t.color}"></span></td>
-                <td class="px-4 py-3 text-sm text-slate-800">${t.name}</td>
+                <td class="px-4 py-3 text-sm text-slate-800">${escapeHtml(t.name)}</td>
                 <td class="px-4 py-3">
                   <button class="delete-treatment-type text-slate-300 hover:text-red-500 transition-colors" data-id="${t.id}">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>

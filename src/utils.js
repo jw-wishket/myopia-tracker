@@ -60,6 +60,16 @@ export function pctBadgeClass(pct) {
   return 'bg-red-50 text-red-700';
 }
 
+export function escapeHtml(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export function showLoading() {
   document.getElementById('loadingOverlay')?.classList.remove('hidden');
 }

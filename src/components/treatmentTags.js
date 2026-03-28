@@ -1,5 +1,5 @@
 import { TREATMENT_COLORS, TREATMENT_TYPES } from '../constants.js';
-import { formatDate, todayStr } from '../utils.js';
+import { formatDate, todayStr, escapeHtml } from '../utils.js';
 
 export function renderTreatmentTags(treatments, options = {}) {
   const { editable = false, treatmentTypes = [] } = options;
@@ -18,7 +18,7 @@ export function renderTreatmentTags(treatments, options = {}) {
     return `
       <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm border" style="border-color:${color}30; background:${color}10; color:${color}">
         <span class="w-2 h-2 rounded-full" style="background:${color}"></span>
-        <span class="font-medium">${t.type}</span>
+        <span class="font-medium">${escapeHtml(t.type)}</span>
         <span class="text-xs opacity-70">${formatDate(t.date)}${t.endDate ? ' ~ ' + formatDate(t.endDate) : ' ~ 진행중'}</span>
         ${editable && !t.endDate ? `<button class="treatment-end ml-1 text-xs opacity-50 hover:opacity-100" data-id="${t.id}" title="치료 종료">⏹</button>` : ''}
         ${editable ? `<button class="treatment-remove ml-1 hover:opacity-70" data-id="${t.id}">&times;</button>` : ''}
@@ -42,7 +42,7 @@ function renderAddForm(treatmentTypes = []) {
     <div id="treatmentAddForm" class="hidden w-full mt-2 flex flex-wrap gap-2 items-end">
       <div class="flex-1 min-w-[150px]">
         <select id="treatmentTypeSelect" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:border-primary-400">
-          ${types.map(t => `<option value="${t.name}">${t.name}</option>`).join('')}
+          ${types.map(t => `<option value="${escapeHtml(t.name)}">${escapeHtml(t.name)}</option>`).join('')}
           <option value="__custom__">직접 입력...</option>
         </select>
       </div>

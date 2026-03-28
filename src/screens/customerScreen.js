@@ -11,7 +11,7 @@ import { openModal } from '../components/modal.js';
 import { openPrintReport } from '../components/printReport.js';
 import { getState, setState } from '../state.js';
 import { getPatients, getPatientById, logout, changePassword, updateProfile, getClinics } from '../data/dataService.js';
-import { progressLabel, formatDate } from '../utils.js';
+import { progressLabel, formatDate, escapeHtml } from '../utils.js';
 
 export async function renderCustomerScreen(container) {
   const user = getState().currentUser;
@@ -81,9 +81,9 @@ export async function renderCustomerScreen(container) {
             const lastMeasDate = p.records?.length > 0 ? p.records[p.records.length - 1].date : null;
             return `
             <button class="child-select flex-shrink-0 flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-colors ${p.id === selectedPatient?.id ? 'border-primary-500 bg-primary-50' : 'border-slate-200 hover:border-slate-300'}" data-id="${p.id}">
-              <div class="w-10 h-10 rounded-full ${p.id === selectedPatient?.id ? 'bg-primary-200 text-primary-700' : 'bg-slate-100 text-slate-500'} flex items-center justify-center text-sm font-semibold">${p.name.charAt(0)}</div>
+              <div class="w-10 h-10 rounded-full ${p.id === selectedPatient?.id ? 'bg-primary-200 text-primary-700' : 'bg-slate-100 text-slate-500'} flex items-center justify-center text-sm font-semibold">${escapeHtml(p.name.charAt(0))}</div>
               <div class="text-left">
-                <div class="text-sm font-medium text-slate-800">${p.name}</div>
+                <div class="text-sm font-medium text-slate-800">${escapeHtml(p.name)}</div>
                 <div class="text-xs text-slate-500">${p.birthDate} · ${p.gender === 'male' ? '남' : '여'}</div>
                 ${lastMeasDate ? `<div class="text-[10px] text-primary-500 mt-0.5">최근 측정: ${formatDate(lastMeasDate)}</div>` : ''}
               </div>
@@ -191,7 +191,7 @@ function renderChildDetail(patient) {
     <div class="bg-white rounded-2xl border border-slate-200 p-5">
       <div class="flex items-center justify-between mb-4">
         <h3 class="text-sm font-semibold text-slate-800">성장 추이</h3>
-        <button class="save-customer-chart-btn px-3 py-1.5 text-xs font-medium text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50 hover:text-primary-600 transition-colors flex items-center gap-1" data-patient-name="${patient.name}">
+        <button class="save-customer-chart-btn px-3 py-1.5 text-xs font-medium text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50 hover:text-primary-600 transition-colors flex items-center gap-1" data-patient-name="${escapeHtml(patient.name)}">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
           이미지 저장
         </button>
@@ -228,8 +228,8 @@ async function openChildrenManagementModal(container, user, children) {
       return `
       <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
         <div>
-          <div class="text-sm font-medium text-slate-800">${c.name}</div>
-          <div class="text-xs text-slate-500">${c.birthDate}${clinicName ? ` · ${clinicName}` : ''}</div>
+          <div class="text-sm font-medium text-slate-800">${escapeHtml(c.name)}</div>
+          <div class="text-xs text-slate-500">${c.birthDate}${clinicName ? ` · ${escapeHtml(clinicName)}` : ''}</div>
         </div>
         <div class="flex gap-2">
           <button class="child-edit-btn px-2 py-1 text-xs text-primary-600 border border-primary-200 rounded-lg hover:bg-primary-50" data-index="${i}">수정</button>
