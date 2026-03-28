@@ -261,6 +261,11 @@ export async function getStats() {
   };
 }
 
+export async function changePassword(newPassword) {
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) throw error;
+}
+
 export async function resetData() {
   // No-op for Supabase (data persists in cloud)
 }

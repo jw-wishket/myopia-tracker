@@ -7,9 +7,11 @@ import { renderMeasurementTable } from '../components/measurementTable.js';
 import { renderPatientInfoBar } from '../components/patientInfoBar.js';
 import { renderGrowthChart, initGrowthChart, destroyChart } from '../components/growthChart.js';
 import { renderProgressChart, initProgressChart, destroyProgressChart } from '../components/progressChart.js';
+import { renderProgressReport } from '../components/progressReport.js';
+import { renderTreatmentComparison } from '../components/treatmentComparison.js';
 import { openModal } from '../components/modal.js';
 import { getState, setState } from '../state.js';
-import { getPatients, searchPatients, getPatientById, addPatient, addMeasurement, deleteRecord, addTreatment, removeTreatment, deletePatient, updatePatient, logout, resetData } from '../data/dataService.js';
+import { getPatients, searchPatients, getPatientById, addPatient, addMeasurement, deleteRecord, addTreatment, removeTreatment, deletePatient, updatePatient, logout, resetData, changePassword } from '../data/dataService.js';
 import { todayStr, calcAge, progressLabel } from '../utils.js';
 
 let currentSearchQuery = '';
@@ -146,6 +148,17 @@ function renderPatientContent(patient, patients) {
         <div class="bg-white rounded-2xl border border-slate-200 p-5">
           <h3 class="text-sm font-semibold text-slate-800 mb-4">진행 추이</h3>
           ${renderProgressChart()}
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div class="bg-white rounded-2xl border border-slate-200 p-5">
+          <h3 class="text-sm font-semibold text-slate-800 mb-4">진행 속도 분석</h3>
+          ${renderProgressReport(patient)}
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-200 p-5">
+          <h3 class="text-sm font-semibold text-slate-800 mb-4">치료 효과 분석</h3>
+          ${renderTreatmentComparison(patient)}
         </div>
       </div>
 
@@ -497,6 +510,16 @@ function openSettingsModal(container) {
   const modal = openModal('설정', `
     <div class="space-y-4">
       <div class="p-4 bg-slate-50 rounded-xl">
+        <h4 class="text-sm font-semibold text-slate-700 mb-1">비밀번호 변경</h4>
+        <p class="text-xs text-slate-500 mb-3">새 비밀번호를 입력하세요 (8자 이상).</p>
+        <div class="space-y-2">
+          <input type="password" id="settingsNewPw" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-primary-400" placeholder="새 비밀번호">
+          <input type="password" id="settingsConfirmPw" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-primary-400" placeholder="비밀번호 확인">
+          <div id="settingsPwMsg" class="text-xs hidden"></div>
+          <button id="settingsChangePwBtn" class="w-full py-2.5 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 transition-colors">변경</button>
+        </div>
+      </div>
+      <div class="p-4 bg-slate-50 rounded-xl">
         <h4 class="text-sm font-semibold text-slate-700 mb-1">계정</h4>
         <p class="text-xs text-slate-500 mb-3">현재 로그인된 계정에서 로그아웃합니다.</p>
         <button id="settingsLogoutBtn" class="w-full py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-white transition-colors">로그아웃</button>
@@ -511,6 +534,48 @@ function openSettingsModal(container) {
   `);
 
   modal.element.querySelector('#settingsCloseBtn').addEventListener('click', modal.close);
+
+  // Password change
+  modal.element.querySelector('#settingsChangePwBtn').addEventListener('click', async () => {
+    const newPw = modal.element.querySelector('#settingsNewPw').value;
+    const confirmPw = modal.element.querySelector('#settingsConfirmPw').value;
+    const msgEl = modal.element.querySelector('#settingsPwMsg');
+    msgEl.classList.remove('hidden', 'text-red-500', 'text-emerald-600');
+
+    if (!newPw || newPw.length < 8) {
+      msgEl.textContent = '비밀번호는 8자 이상이어야 합니다.';
+      msgEl.classList.add('text-red-500');
+      msgEl.classList.remove('hidden');
+      return;
+    }
+    if (newPw !== confirmPw) {
+      msgEl.textContent = '비밀번호가 일치하지 않습니다.';
+      msgEl.classList.add('text-red-500');
+      msgEl.classList.remove('hidden');
+      return;
+    }
+
+    const btn = modal.element.querySelector('#settingsChangePwBtn');
+    btn.disabled = true;
+    btn.textContent = '변경 중...';
+
+    try {
+      await changePassword(newPw);
+      msgEl.textContent = '비밀번호가 성공적으로 변경되었습니다.';
+      msgEl.classList.add('text-emerald-600');
+      msgEl.classList.remove('hidden');
+      modal.element.querySelector('#settingsNewPw').value = '';
+      modal.element.querySelector('#settingsConfirmPw').value = '';
+    } catch (err) {
+      msgEl.textContent = '변경 실패: ' + (err.message || '알 수 없는 오류');
+      msgEl.classList.add('text-red-500');
+      msgEl.classList.remove('hidden');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '변경';
+    }
+  });
+
   modal.element.querySelector('#settingsLogoutBtn').addEventListener('click', async () => {
     await logout();
     setState({ currentUser: null, currentPatient: null });
