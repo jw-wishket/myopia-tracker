@@ -1,5 +1,18 @@
-import { Chart } from 'chart.js';
+import {
+  Chart,
+  LineController,
+  CategoryScale, LinearScale,
+  PointElement, LineElement,
+  Title, Tooltip, Legend, Filler
+} from 'chart.js';
 import { OD_COLOR, OS_COLOR } from '../constants.js';
+
+Chart.register(
+  LineController,
+  CategoryScale, LinearScale,
+  PointElement, LineElement,
+  Title, Tooltip, Legend, Filler
+);
 
 let progressChartInstance = null;
 

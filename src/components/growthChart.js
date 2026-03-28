@@ -1,4 +1,10 @@
-import { Chart, registerables } from 'chart.js';
+import {
+  Chart,
+  ScatterController, LineController,
+  LinearScale,
+  PointElement, LineElement,
+  Title, Tooltip, Legend, Filler
+} from 'chart.js';
 import annotationPlugin from 'chartjs-plugin-annotation';
 import { OD_COLOR, OS_COLOR, TREATMENT_COLORS, PERCENTILE_CURVE_STYLES } from '../constants.js';
 import { generateCurveData } from '../utils.js';
@@ -20,7 +26,13 @@ const watermarkPlugin = {
   }
 };
 
-Chart.register(...registerables, annotationPlugin, watermarkPlugin);
+Chart.register(
+  ScatterController, LineController,
+  LinearScale,
+  PointElement, LineElement,
+  Title, Tooltip, Legend, Filler,
+  annotationPlugin, watermarkPlugin
+);
 
 let chartInstances = {};
 

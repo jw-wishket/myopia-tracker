@@ -10,7 +10,7 @@ import { renderRateTable } from '../components/rateTable.js';
 import { openModal } from '../components/modal.js';
 import { openPrintReport } from '../components/printReport.js';
 import { getState, setState } from '../state.js';
-import { getPatients, getPatientById, logout, changePassword, updateProfile, getClinics } from '../data/dataService.js';
+import { getPatientById, searchPatientByInfo, logout, changePassword, updateProfile, getClinics } from '../data/dataService.js';
 import { progressLabel, formatDate, escapeHtml } from '../utils.js';
 
 export async function renderCustomerScreen(container) {
@@ -19,42 +19,26 @@ export async function renderCustomerScreen(container) {
 
   const children = user.children || [];
 
-  // Multi-clinic support: fetch patients across all unique clinic IDs from children
-  const childClinicIds = [...new Set(children.map(c => c.clinicId).filter(Boolean))];
-  const clinicIds = childClinicIds.length > 0 ? childClinicIds : (user.clinicId ? [user.clinicId] : []);
-
-  let allPatients = [];
-  for (const cid of clinicIds) {
-    const pts = await getPatients(cid);
-    allPatients = allPatients.concat(pts);
-  }
-
-  // Match children to patients - prefer patientId, fallback to name+birthDate
-  const matchedPatients = [];
-  for (const c of children) {
-    let patient = null;
+  // Look up each child's patient directly by ID or name+birthDate (avoids loading all clinic patients)
+  const patientPromises = children.map(async (c) => {
     if (c.patientId) {
-      // Direct ID link
-      patient = allPatients.find(p => p.id === c.patientId);
+      return getPatientById(c.patientId);
     }
-    if (!patient) {
-      // Fallback: name + birthDate match
-      patient = allPatients.find(p => p.name === c.name && p.birthDate === c.birthDate);
+    const clinicId = c.clinicId || user.clinicId;
+    if (clinicId && c.name && c.birthDate) {
+      return searchPatientByInfo(c.name, c.birthDate, null, clinicId);
     }
-    if (patient) {
-      matchedPatients.push(patient);
-      // Auto-update child entry with patientId if missing
-      if (!c.patientId && patient.id) {
-        c.patientId = patient.id;
-      }
-    }
-  }
+    return null;
+  });
 
-  // If any children were updated with patientId, save back
-  const updatedChildren = children.map(c => {
-    const matched = matchedPatients.find(p => p.name === c.name && p.birthDate === c.birthDate);
-    if (matched && !c.patientId) {
-      return { ...c, patientId: matched.id };
+  const results = await Promise.all(patientPromises);
+  const matchedPatients = results.filter(Boolean);
+
+  // Auto-update children with patientId if missing
+  const updatedChildren = children.map((c, i) => {
+    const patient = results[i];
+    if (patient && !c.patientId) {
+      return { ...c, patientId: patient.id };
     }
     return c;
   });
@@ -318,8 +302,7 @@ async function openChildrenManagementModal(container, user, children) {
     const newChild = { name, birthDate, clinicId: childClinicId };
     // Try to find matching patient and store patientId
     if (childClinicId) {
-      const pts = await getPatients(childClinicId);
-      const match = pts.find(p => p.name === name && p.birthDate === birthDate);
+      const match = await searchPatientByInfo(name, birthDate, null, childClinicId);
       if (match) newChild.patientId = match.id;
     }
     childrenCopy.push(newChild);

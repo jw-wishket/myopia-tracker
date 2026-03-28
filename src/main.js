@@ -3,24 +3,27 @@ import { registerRoute, startRouter, navigate } from './router.js';
 import { getCurrentUser } from './data/dataService.js';
 import { getState, setState } from './state.js';
 
-import { renderLoginScreen } from './screens/loginScreen.js';
-import { renderDoctorScreen } from './screens/doctorScreen.js';
-import { renderCustomerScreen } from './screens/customerScreen.js';
-import { renderAdminScreen } from './screens/adminScreen.js';
-import { renderRegisterScreen } from './screens/registerScreen.js';
-import { renderPendingScreen } from './screens/pendingScreen.js';
+// Lazy screen loaders
+const screens = {
+  login: () => import('./screens/loginScreen.js').then(m => m.renderLoginScreen),
+  doctor: () => import('./screens/doctorScreen.js').then(m => m.renderDoctorScreen),
+  customer: () => import('./screens/customerScreen.js').then(m => m.renderCustomerScreen),
+  admin: () => import('./screens/adminScreen.js').then(m => m.renderAdminScreen),
+  register: () => import('./screens/registerScreen.js').then(m => m.renderRegisterScreen),
+  pending: () => import('./screens/pendingScreen.js').then(m => m.renderPendingScreen),
+};
 
-import { renderNavbar } from './components/navbar.js';
-import { renderStatsCard } from './components/statsCard.js';
-import { renderTreatmentTags } from './components/treatmentTags.js';
-import { renderMeasurementTable } from './components/measurementTable.js';
-import { renderPatientInfoBar } from './components/patientInfoBar.js';
-import { renderGrowthChart, initGrowthChart, destroyChart } from './components/growthChart.js';
+function lazyRoute(screenKey) {
+  return async (container) => {
+    const renderFn = await screens[screenKey]();
+    return renderFn(container);
+  };
+}
 
 // Public routes
-registerRoute('login', renderLoginScreen);
-registerRoute('register', renderRegisterScreen);
-registerRoute('pending', renderPendingScreen);
+registerRoute('login', lazyRoute('login'));
+registerRoute('register', lazyRoute('register'));
+registerRoute('pending', lazyRoute('pending'));
 
 // Auth-guarded routes
 function authGuard(renderFn) {
@@ -32,14 +35,31 @@ function authGuard(renderFn) {
   };
 }
 
-registerRoute('doctor', authGuard(renderDoctorScreen));
-registerRoute('customer', authGuard(renderCustomerScreen));
-registerRoute('admin', authGuard(renderAdminScreen));
+registerRoute('doctor', authGuard(lazyRoute('doctor')));
+registerRoute('customer', authGuard(lazyRoute('customer')));
+registerRoute('admin', authGuard(lazyRoute('admin')));
 
 // Patient search result (no auth needed)
-registerRoute('patient-result', (container) => {
+registerRoute('patient-result', async (container) => {
   const patient = getState().currentPatient;
   if (!patient) { navigate('login'); return; }
+
+  const [
+    { renderNavbar },
+    { renderStatsCard },
+    { renderTreatmentTags },
+    { renderMeasurementTable },
+    { renderPatientInfoBar },
+    { renderGrowthChart, initGrowthChart, destroyChart }
+  ] = await Promise.all([
+    import('./components/navbar.js'),
+    import('./components/statsCard.js'),
+    import('./components/treatmentTags.js'),
+    import('./components/measurementTable.js'),
+    import('./components/patientInfoBar.js'),
+    import('./components/growthChart.js'),
+  ]);
+
   const nav = renderNavbar({ title: '근시관리 트래커', subtitle: '환자 기록 조회', showBack: true, backTarget: 'login' });
   container.innerHTML = `
     ${nav.html}
