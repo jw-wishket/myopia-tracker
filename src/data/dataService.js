@@ -111,9 +111,16 @@ export async function searchPatients(query, clinicId) {
   return Promise.all(data.map(p => fetchPatientFull(p)));
 }
 
-export async function searchPatientByInfo(name, birthDate) {
-  const { data, error } = await supabase
-    .from('patients').select('*').eq('name', name).eq('birth_date', birthDate).limit(1).single();
+export async function searchPatientByInfo(name, birthDate, regNo) {
+  let query;
+  if (regNo) {
+    // 등록번호로 검색
+    query = supabase.from('patients').select('*').eq('reg_no', regNo).limit(1).single();
+  } else {
+    // 이름 + 생년월일로 검색
+    query = supabase.from('patients').select('*').eq('name', name).eq('birth_date', birthDate).limit(1).single();
+  }
+  const { data, error } = await query;
   if (error || !data) return null;
   return fetchPatientFull(data);
 }

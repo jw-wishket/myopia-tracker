@@ -115,13 +115,18 @@ export async function renderLoginScreen(container) {
   container.querySelector('#searchBtn').addEventListener('click', async () => {
     const name = container.querySelector('#searchName').value.trim();
     const birth = container.querySelector('#searchBirth').value;
+    const regNo = container.querySelector('#searchRegNo').value.trim();
     const errEl = container.querySelector('#searchError');
-    if (!name || !birth) {
-      errEl.textContent = '이름과 생년월일을 입력해주세요';
+    errEl.classList.add('hidden');
+
+    // 등록번호로 검색 OR 이름+생년월일로 검색
+    if (!regNo && (!name || !birth)) {
+      errEl.textContent = '이름+생년월일 또는 등록번호를 입력해주세요';
       errEl.classList.remove('hidden');
       return;
     }
-    const patient = await searchPatientByInfo(name, birth);
+
+    const patient = await searchPatientByInfo(name, birth, regNo);
     if (patient) {
       setState({ currentPatient: patient });
       navigate('patient-result');
