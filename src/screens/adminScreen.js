@@ -111,7 +111,7 @@ function renderClinics(clinics) {
           <th class="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase">등록자</th>
         </tr></thead>
         <tbody>
-          ${clinics.map(c => `<tr class="border-b border-slate-100 hover:bg-slate-50"><td class="px-4 py-3 text-sm text-slate-800">${c.name}</td><td class="px-4 py-3 text-sm text-slate-500">${c.createdBy}</td></tr>`).join('')}
+          ${clinics.map(c => `<tr class="border-b border-slate-100 hover:bg-slate-50"><td class="px-4 py-3 text-sm text-slate-800">${c.name}</td><td class="px-4 py-3 text-sm text-slate-500">${c.createdBy || '-'}</td></tr>`).join('')}
         </tbody>
       </table>
     </div>

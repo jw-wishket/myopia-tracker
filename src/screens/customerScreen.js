@@ -60,7 +60,9 @@ export async function renderCustomerScreen(container) {
   });
 
   if (selectedPatient) {
-    initGrowthChart('customerGrowthChart', selectedPatient);
+    requestAnimationFrame(() => {
+      initGrowthChart('customerGrowthChart', selectedPatient);
+    });
   }
 
   return () => destroyChart('customerGrowthChart');

@@ -66,7 +66,7 @@ registerRoute('patient-result', (container) => {
     </main>
   `;
   nav.bind(container);
-  initGrowthChart('searchResultChart', patient);
+  requestAnimationFrame(() => initGrowthChart('searchResultChart', patient));
   return () => destroyChart('searchResultChart');
 });
 
