@@ -12,7 +12,7 @@ import { renderTreatmentComparison } from '../components/treatmentComparison.js'
 import { renderRateTable } from '../components/rateTable.js';
 import { openModal } from '../components/modal.js';
 import { getState, setState } from '../state.js';
-import { getPatients, searchPatients, getPatientById, addPatient, addMeasurement, deleteRecord, addTreatment, removeTreatment, updateTreatment, deletePatient, updatePatient, logout, resetData, changePassword, getNotes, addNote, deleteNote, importMeasurements } from '../data/dataService.js';
+import { getPatients, searchPatients, getPatientById, addPatient, addMeasurement, deleteRecord, addTreatment, removeTreatment, updateTreatment, deletePatient, updatePatient, logout, resetData, changePassword, getNotes, addNote, deleteNote, importMeasurements, exportClinicData, getOverduePatients } from '../data/dataService.js';
 import { renderPatientNotes } from '../components/patientNotes.js';
 import { todayStr, calcAge, progressLabel } from '../utils.js';
 import { showSyncStatus } from '../components/syncStatus.js';
@@ -57,14 +57,39 @@ export async function renderDoctorScreen(container) {
     currentNotes = [];
   }
 
+  // Feature 4: count rapid progression patients
+  const rapidCount = patients.filter(p => {
+    if (!p.records || p.records.length < 2) return false;
+    const label = progressLabel(p.records);
+    return label.cls.includes('red');
+  }).length;
+
+  // Feature 3: get overdue patients
+  let overduePatients = [];
+  try {
+    overduePatients = await getOverduePatients(user.clinicId);
+  } catch (e) { /* column may not exist yet */ }
+
   const nav = renderNavbar({ title: '근시관리 트래커', subtitle: user.clinicName, user });
-  const sidebar = renderSidebar(patients, selectedPatient?.id, { searchQuery: currentSearchQuery });
+  const sidebar = renderSidebar(patients, selectedPatient?.id, { searchQuery: currentSearchQuery, rapidCount });
+
+  const overdueAlert = overduePatients.length > 0 ? `
+    <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
+      <div class="text-sm font-medium text-amber-800 mb-2">⚠ 추적 검사 필요 환자 (${overduePatients.length}명)</div>
+      <div class="flex flex-wrap gap-2">
+        ${overduePatients.map(p => `
+          <button class="overdue-patient px-3 py-1.5 bg-white border border-amber-200 rounded-lg text-xs text-amber-700 hover:bg-amber-100" data-id="${p.id}">${p.name} (${p.nextVisitDate})</button>
+        `).join('')}
+      </div>
+    </div>
+  ` : '';
 
   container.innerHTML = `
     ${nav.html}
     <div class="flex">
       ${sidebar}
       <main class="flex-1 min-h-[calc(100vh-56px)] has-bottom-nav">
+        ${overdueAlert}
         ${renderPatientContent(selectedPatient, patients)}
       </main>
     </div>
@@ -98,6 +123,22 @@ function renderPatientContent(patient, patients) {
 
   const prog = progressLabel(patient.records);
 
+  // Feature 4: rapid progression alert
+  const rapidAlert = prog.cls.includes('red') && patient.records?.length >= 2 ? `
+    <div class="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
+      <svg class="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+      <div>
+        <div class="text-sm font-semibold text-red-800">빠른 근시 진행 감지</div>
+        <div class="text-xs text-red-600 mt-1">현재 진행 속도: ${prog.text}. 치료 변경을 검토해주세요.</div>
+      </div>
+    </div>
+  ` : '';
+
+  // Next visit date display
+  const nextVisitInfo = patient.nextVisitDate ? `
+    <div class="text-xs text-slate-500">다음 방문 예정: ${patient.nextVisitDate}</div>
+  ` : '';
+
   // Mobile patient chips
   const mobileChips = `
     <div class="md:hidden overflow-x-auto px-4 py-3 flex gap-2 border-b border-slate-200 bg-white">
@@ -118,6 +159,9 @@ function renderPatientContent(patient, patients) {
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
         </button>
       </div>
+
+      ${nextVisitInfo}
+      ${rapidAlert}
 
       <div class="flex items-center justify-between">
         <span class="text-sm ${prog.cls}">${prog.text}</span>
@@ -423,6 +467,34 @@ function bindDoctorEvents(container, user, patients, selectedPatient) {
   if (importBtn && selectedPatient) {
     importBtn.addEventListener('click', () => openImportCsvModal(container, selectedPatient));
   }
+
+  // Feature 1: Full clinic data export
+  const exportAllBtn = container.querySelector('#exportAllBtn');
+  if (exportAllBtn) {
+    exportAllBtn.addEventListener('click', async () => {
+      exportAllBtn.textContent = '내보내는 중...';
+      exportAllBtn.disabled = true;
+      const csv = await exportClinicData(user.clinicId);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `${user.clinicName || 'clinic'}_전체데이터.csv`;
+      link.click();
+      exportAllBtn.textContent = '전체 내보내기';
+      exportAllBtn.disabled = false;
+    });
+  }
+
+  // Feature 3: Overdue patient click handlers
+  container.querySelectorAll('.overdue-patient').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const patient = await getPatientById(btn.dataset.id);
+      if (patient) {
+        setState({ currentPatient: patient });
+        await renderDoctorScreen(container);
+      }
+    });
+  });
 }
 
 function openAddPatientModal(container, user) {
@@ -598,6 +670,13 @@ function openAddMeasurementModal(container, patient) {
     const result = await addMeasurement(patient.id, { date, odAL, osAL, odSE: isNaN(odSE) ? null : odSE, osSE: isNaN(osSE) ? null : osSE });
     if (result) {
       showSyncStatus('synced', '저장 완료');
+      // Feature 3: Auto-set next visit date (default 6 months)
+      try {
+        const nextDate = new Date(date);
+        nextDate.setMonth(nextDate.getMonth() + (patient.followUpMonths || 6));
+        const nextVisitStr = nextDate.toISOString().split('T')[0];
+        await updatePatient(patient.id, { nextVisitDate: nextVisitStr });
+      } catch (e) { /* ignore if column doesn't exist yet */ }
     } else {
       showSyncStatus('error', '저장 실패');
     }

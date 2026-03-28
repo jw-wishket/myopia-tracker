@@ -27,6 +27,8 @@ function toPatientJS(p, measurements = [], treatments = []) {
     gender: p.gender,
     clinicId: p.clinic_id,
     customRef: p.custom_ref,
+    nextVisitDate: p.next_visit_date,
+    followUpMonths: p.follow_up_months,
     records: measurements
       .sort((a, b) => new Date(a.date) - new Date(b.date))
       .map(m => ({
@@ -91,6 +93,7 @@ export async function getCurrentUser() {
 
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
   if (!profile) return null;
+  if (profile.role === 'deactivated') return null;
   return toProfileJS(profile);
 }
 
@@ -177,6 +180,8 @@ export async function updatePatient(id, updates) {
   if (updates.name !== undefined) dbUpdates.name = updates.name;
   if (updates.birthDate !== undefined) dbUpdates.birth_date = updates.birthDate;
   if (updates.customRef !== undefined) dbUpdates.custom_ref = updates.customRef;
+  if (updates.nextVisitDate !== undefined) dbUpdates.next_visit_date = updates.nextVisitDate;
+  if (updates.followUpMonths !== undefined) dbUpdates.follow_up_months = updates.followUpMonths;
   const { error } = await supabase.from('patients').update(dbUpdates).eq('id', id);
   if (error) { console.error('updatePatient error:', error); return false; }
   await logAudit('update', 'patient', id, updates);
@@ -381,6 +386,51 @@ export async function changePassword(newPassword) {
 
 export async function resetData() {
   // No-op for Supabase (data persists in cloud)
+}
+
+// ============================================
+// Full Clinic Data Export
+// ============================================
+export async function exportClinicData(clinicId) {
+  const patients = await getPatients(clinicId);
+  let csv = '\ufeff환자명,생년월일,성별,관리번호,측정일,나이,OD_AL,OS_AL,OD_SE,OS_SE,OD_Pct,OS_Pct,치료\n';
+  for (const p of patients) {
+    const treatmentStr = (p.treatments || []).map(t => `${t.type}(${t.date}${t.endDate ? '~' + t.endDate : ''})`).join('; ');
+    if (p.records && p.records.length > 0) {
+      for (const r of p.records) {
+        csv += `${p.name},${p.birthDate},${p.gender === 'male' ? '남' : '여'},${p.customRef || ''},${r.date},${r.age},${r.odAL},${r.osAL},${r.odSE ?? ''},${r.osSE ?? ''},${r.odPct ?? ''},${r.osPct ?? ''},${treatmentStr}\n`;
+      }
+    } else {
+      csv += `${p.name},${p.birthDate},${p.gender === 'male' ? '남' : '여'},${p.customRef || ''},,,,,,,,${treatmentStr}\n`;
+    }
+  }
+  return csv;
+}
+
+// ============================================
+// Account Deactivation
+// ============================================
+export async function deactivateUser(userId) {
+  const { error } = await supabase.from('profiles').update({ approved: false, role: 'deactivated' }).eq('id', userId);
+  if (error) { console.error('deactivateUser error:', error); return false; }
+  await logAudit('deactivate', 'user', userId);
+  return true;
+}
+
+// ============================================
+// Follow-up Scheduling
+// ============================================
+export async function getOverduePatients(clinicId) {
+  const today = new Date().toISOString().split('T')[0];
+  const { data } = await supabase.from('patients')
+    .select('*')
+    .eq('clinic_id', clinicId)
+    .lt('next_visit_date', today)
+    .order('next_visit_date');
+  return (data || []).map(p => ({
+    id: p.id, name: p.name, birthDate: p.birth_date,
+    nextVisitDate: p.next_visit_date, customRef: p.custom_ref,
+  }));
 }
 
 // ============================================

@@ -3,7 +3,7 @@ import { getState } from '../state.js';
 import {
   getStats, getApprovalRequests, approveRequest, rejectRequest,
   getClinics, getDoctors, getAllPatients,
-  adminCreateClinic, updateClinic, deleteClinic, revokeDoctor,
+  adminCreateClinic, updateClinic, deleteClinic, revokeDoctor, deactivateUser,
 } from '../data/dataService.js';
 import { openModal } from '../components/modal.js';
 import { formatDate } from '../utils.js';
@@ -138,6 +138,16 @@ export async function renderAdminScreen(container) {
     });
   });
 
+  // Deactivate buttons
+  container.querySelectorAll('.deactivate-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (confirm('이 계정을 비활성화하시겠습니까? 해당 사용자는 더 이상 로그인할 수 없습니다.')) {
+        await deactivateUser(btn.dataset.id);
+        await renderAdminScreen(container);
+      }
+    });
+  });
+
   // Patient search
   const searchInput = container.querySelector('#patientSearchInput');
   if (searchInput) {
@@ -260,9 +270,12 @@ function renderDoctors(doctors) {
                     : '<span class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-amber-50 text-amber-700">미승인</span>'}
                 </td>
                 <td class="px-4 py-3 text-right">
-                  ${d.approved
-                    ? `<button class="revoke-doctor-btn px-3 py-1.5 text-xs font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors" data-id="${d.id}">승인 취소</button>`
-                    : ''}
+                  <div class="flex justify-end gap-1">
+                    ${d.approved
+                      ? `<button class="revoke-doctor-btn px-3 py-1.5 text-xs font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors" data-id="${d.id}">승인 취소</button>`
+                      : ''}
+                    <button class="deactivate-btn px-3 py-1.5 text-xs font-medium border border-slate-200 text-slate-500 rounded-lg hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors" data-id="${d.id}">비활성화</button>
+                  </div>
                 </td>
               </tr>
             `).join('')}
