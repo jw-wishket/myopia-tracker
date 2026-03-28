@@ -103,7 +103,7 @@ export async function renderDoctorScreen(container) {
       ${sidebar}
       <main class="flex-1 min-h-[calc(100vh-56px)] has-bottom-nav">
         ${overdueAlert}
-        ${renderPatientContent(selectedPatient, patients)}
+        ${renderPatientContent(selectedPatient, sidebarPatients)}
       </main>
     </div>
     ${renderBottomNav('patients')}

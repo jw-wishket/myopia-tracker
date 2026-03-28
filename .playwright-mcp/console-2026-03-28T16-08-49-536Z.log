@@ -1,0 +1,9 @@
+[     554ms] [ERROR] The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element. @ https://myopia-tracker.vercel.app/#login:6
+[    3657ms] ReferenceError: patients is not defined
+    at $ (https://myopia-tracker.vercel.app/assets/index-ibUWbIcA.js:614:16)
+    at async https://myopia-tracker.vercel.app/assets/index-ibUWbIcA.js:1310:299
+    at async i (https://myopia-tracker.vercel.app/assets/index-ibUWbIcA.js:1:891)
+[    3690ms] ReferenceError: patients is not defined
+    at $ (https://myopia-tracker.vercel.app/assets/index-ibUWbIcA.js:614:16)
+    at async https://myopia-tracker.vercel.app/assets/index-ibUWbIcA.js:1310:299
+    at async i (https://myopia-tracker.vercel.app/assets/index-ibUWbIcA.js:1:891)
