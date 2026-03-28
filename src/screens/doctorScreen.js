@@ -12,7 +12,7 @@ import { renderTreatmentComparison } from '../components/treatmentComparison.js'
 import { renderRateTable } from '../components/rateTable.js';
 import { openModal } from '../components/modal.js';
 import { getState, setState } from '../state.js';
-import { getPatients, searchPatients, getPatientById, addPatient, addMeasurement, deleteRecord, addTreatment, removeTreatment, updateTreatment, deletePatient, updatePatient, logout, resetData, changePassword, getNotes, addNote, deleteNote, importMeasurements, exportClinicData, getOverduePatients, getTreatmentTypes, addTreatmentType } from '../data/dataService.js';
+import { getPatients, searchPatients, getPatientById, addPatient, addMeasurement, deleteRecord, addTreatment, removeTreatment, updateTreatment, deletePatient, updatePatient, logout, resetData, changePassword, getNotes, addNote, deleteNote, importMeasurements, exportClinicData, getOverduePatients, getTreatmentTypes, addTreatmentType, getRecentPatients, searchPatientsLight, getPatientCount } from '../data/dataService.js';
 import { renderPatientNotes } from '../components/patientNotes.js';
 import { todayStr, calcAge, progressLabel } from '../utils.js';
 import { showSyncStatus } from '../components/syncStatus.js';
@@ -43,17 +43,31 @@ export async function renderDoctorScreen(container) {
     `;
   }
 
-  const [patients, treatmentTypes] = await Promise.all([
-    currentSearchQuery
-      ? searchPatients(currentSearchQuery, user.clinicId)
-      : getPatients(user.clinicId),
-    getTreatmentTypes(),
-  ]);
+  const isSearching = currentSearchQuery.length > 0;
+  let sidebarPatients;
+  let totalCount = 0;
+  let treatmentTypes;
+
+  if (isSearching) {
+    [sidebarPatients, treatmentTypes] = await Promise.all([
+      searchPatientsLight(currentSearchQuery, user.clinicId),
+      getTreatmentTypes(),
+    ]);
+  } else {
+    [sidebarPatients, treatmentTypes, totalCount] = await Promise.all([
+      getRecentPatients(user.clinicId, 10),
+      getTreatmentTypes(),
+      getPatientCount(user.clinicId),
+    ]);
+  }
   cachedTreatmentTypes = treatmentTypes;
   isLoadingPatients = false;
 
-  const selectedPatient = getState().currentPatient || patients[0] || null;
-  if (selectedPatient && !getState().currentPatient) {
+  let selectedPatient = getState().currentPatient;
+  if (!selectedPatient && sidebarPatients.length > 0) {
+    selectedPatient = sidebarPatients[0]?.records
+      ? sidebarPatients[0]
+      : await getPatientById(sidebarPatients[0].id);
     setState({ currentPatient: selectedPatient });
   }
 
@@ -63,13 +77,6 @@ export async function renderDoctorScreen(container) {
     currentNotes = [];
   }
 
-  // Feature 4: count rapid progression patients
-  const rapidCount = patients.filter(p => {
-    if (!p.records || p.records.length < 2) return false;
-    const label = progressLabel(p.records);
-    return label.cls.includes('red');
-  }).length;
-
   // Feature 3: get overdue patients
   let overduePatients = [];
   try {
@@ -77,7 +84,7 @@ export async function renderDoctorScreen(container) {
   } catch (e) { /* column may not exist yet */ }
 
   const nav = renderNavbar({ title: '근시관리 트래커', subtitle: user.clinicName, user });
-  const sidebar = renderSidebar(patients, selectedPatient?.id, { searchQuery: currentSearchQuery, rapidCount });
+  const sidebar = renderSidebar(sidebarPatients, selectedPatient?.id, { searchQuery: currentSearchQuery, isSearching, totalCount });
 
   const overdueAlert = overduePatients.length > 0 ? `
     <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
@@ -103,7 +110,7 @@ export async function renderDoctorScreen(container) {
   `;
 
   nav.bind(container);
-  bindDoctorEvents(container, user, patients, selectedPatient);
+  bindDoctorEvents(container, user, sidebarPatients, selectedPatient);
 
   if (selectedPatient) {
     initGrowthChart('growthChart', selectedPatient);
@@ -283,14 +290,18 @@ function bindDoctorEvents(container, user, patients, selectedPatient) {
     });
   });
 
-  // Sidebar search
+  // Sidebar search with debounce
+  let searchTimeout;
   const searchInput = container.querySelector('#sidebarSearch');
   if (searchInput) {
-    searchInput.addEventListener('input', async (e) => {
-      currentSearchQuery = e.target.value;
-      await renderDoctorScreen(container);
-      const newInput = container.querySelector('#sidebarSearch');
-      if (newInput) { newInput.focus(); newInput.selectionStart = newInput.selectionEnd = newInput.value.length; }
+    searchInput.addEventListener('input', (e) => {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(async () => {
+        currentSearchQuery = e.target.value;
+        await renderDoctorScreen(container);
+        const newInput = container.querySelector('#sidebarSearch');
+        if (newInput) { newInput.focus(); newInput.selectionStart = newInput.selectionEnd = newInput.value.length; }
+      }, 300);
     });
   }
 

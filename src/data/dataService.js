@@ -116,6 +116,60 @@ export async function getPatients(clinicId) {
   return Promise.all(data.map(p => fetchPatientFull(p)));
 }
 
+export async function getRecentPatients(clinicId, limit = 10) {
+  const { data: recentMeasurements } = await supabase
+    .from('measurements')
+    .select('patient_id, date')
+    .order('date', { ascending: false });
+
+  if (!recentMeasurements || recentMeasurements.length === 0) {
+    const { data } = await supabase.from('patients').select('*')
+      .eq('clinic_id', clinicId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (!data || data.length === 0) return [];
+    return Promise.all(data.map(p => fetchPatientFull(p)));
+  }
+
+  const seen = new Set();
+  const recentIds = [];
+  for (const m of recentMeasurements) {
+    if (!seen.has(m.patient_id)) {
+      seen.add(m.patient_id);
+      recentIds.push(m.patient_id);
+      if (recentIds.length >= limit * 2) break;
+    }
+  }
+
+  const { data } = await supabase.from('patients').select('*')
+    .eq('clinic_id', clinicId)
+    .in('id', recentIds);
+
+  if (!data) return [];
+
+  const patientMap = {};
+  data.forEach(p => { patientMap[p.id] = p; });
+  const orderedRows = recentIds.map(id => patientMap[id]).filter(Boolean).slice(0, limit);
+  return Promise.all(orderedRows.map(p => fetchPatientFull(p)));
+}
+
+export async function searchPatientsLight(query, clinicId) {
+  const { data } = await supabase.from('patients').select('id, name, birth_date, gender, custom_ref')
+    .eq('clinic_id', clinicId)
+    .or(`name.ilike.%${query}%,custom_ref.ilike.%${query}%`)
+    .order('name')
+    .limit(20);
+  return (data || []).map(p => ({
+    id: p.id, name: p.name, birthDate: p.birth_date,
+    gender: p.gender, customRef: p.custom_ref,
+  }));
+}
+
+export async function getPatientCount(clinicId) {
+  const { count } = await supabase.from('patients').select('id', { count: 'exact', head: true }).eq('clinic_id', clinicId);
+  return count || 0;
+}
+
 export async function getPatientById(id) {
   const { data, error } = await supabase.from('patients').select('*').eq('id', id).single();
   if (error || !data) return null;
