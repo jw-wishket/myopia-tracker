@@ -1,0 +1,8 @@
+[ 1521928ms] ReferenceError: patients is not defined
+    at $ (https://myopia-tracker.vercel.app/assets/index-irinCwIw.js:614:16)
+    at async https://myopia-tracker.vercel.app/assets/index-irinCwIw.js:1310:257
+    at async i (https://myopia-tracker.vercel.app/assets/index-irinCwIw.js:1:891)
+[ 1531758ms] ReferenceError: patients is not defined
+    at $ (https://myopia-tracker.vercel.app/assets/index-irinCwIw.js:614:16)
+    at async https://myopia-tracker.vercel.app/assets/index-irinCwIw.js:1310:257
+    at async i (https://myopia-tracker.vercel.app/assets/index-irinCwIw.js:1:891)

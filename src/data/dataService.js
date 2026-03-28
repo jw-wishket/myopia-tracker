@@ -395,6 +395,9 @@ export async function getAllPatients() {
 export async function updateClinic(id, name) {
   const { error } = await supabase.from('clinics').update({ name }).eq('id', id);
   if (error) { console.error('updateClinic error:', error); return false; }
+  // 소속 프로필의 clinic_name도 함께 업데이트
+  await supabase.from('profiles').update({ clinic_name: name }).eq('clinic_id', id);
+  await logAudit('update', 'clinic', id, { name });
   return true;
 }
 
