@@ -12,6 +12,7 @@ function toPatientJS(p, measurements = [], treatments = []) {
     birthDate: p.birth_date,
     gender: p.gender,
     clinicId: p.clinic_id,
+    customRef: p.custom_ref,
     records: measurements
       .sort((a, b) => new Date(a.date) - new Date(b.date))
       .map(m => ({
@@ -126,12 +127,23 @@ export async function searchPatientByInfo(name, birthDate, regNo) {
 }
 
 export async function addPatient(patient) {
+  // Auto-generate reg_no if not provided
+  let regNo = patient.regNo;
+  if (!regNo) {
+    const { data: clinic } = await supabase.from('clinics').select('name').eq('id', patient.clinicId).single();
+    const prefix = clinic ? clinic.name.substring(0, 2) : 'MT';
+    const { count } = await supabase.from('patients').select('id', { count: 'exact', head: true }).eq('clinic_id', patient.clinicId);
+    const nextNum = String((count || 0) + 1).padStart(3, '0');
+    regNo = `${prefix}-${nextNum}`;
+  }
+
   const { data, error } = await supabase.from('patients').insert({
     name: patient.name,
     birth_date: patient.birthDate,
     gender: patient.gender,
-    reg_no: patient.regNo || null,
+    reg_no: regNo,
     clinic_id: patient.clinicId,
+    custom_ref: patient.customRef || null,
   }).select().single();
   if (error) { console.error('addPatient error:', error); return null; }
   return toPatientJS(data, [], []);
@@ -282,7 +294,7 @@ export async function getAllPatients() {
   const { data } = await supabase.from('patients').select('*').order('name');
   return (data || []).map(p => ({
     id: p.id, regNo: p.reg_no, name: p.name, birthDate: p.birth_date,
-    gender: p.gender, clinicId: p.clinic_id,
+    gender: p.gender, clinicId: p.clinic_id, customRef: p.custom_ref,
   }));
 }
 

@@ -15,6 +15,7 @@ export function renderPatientInfoBar(patient) {
         <span>·</span>
         <span>${age}세</span>
         ${patient.regNo ? `<span>·</span><span class="font-mono text-xs text-slate-400">#${patient.regNo}</span>` : ''}
+        ${patient.customRef ? `<span>·</span><span class="text-xs text-slate-400">관리: ${patient.customRef}</span>` : ''}
       </div>
     </div>
   `;

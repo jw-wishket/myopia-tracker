@@ -285,16 +285,18 @@ function renderPatientsList(allPatients, clinics) {
           <th class="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase">생년월일</th>
           <th class="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase">성별</th>
           <th class="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase">등록번호</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase">관리번호</th>
           <th class="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase">소속 안과</th>
         </tr></thead>
         <tbody>
-          ${allPatients.length === 0 ? '<tr><td colspan="5" class="px-4 py-6 text-center text-sm text-slate-400">등록된 환자가 없습니다</td></tr>' :
+          ${allPatients.length === 0 ? '<tr><td colspan="6" class="px-4 py-6 text-center text-sm text-slate-400">등록된 환자가 없습니다</td></tr>' :
             allPatients.map(p => `
               <tr class="patient-row border-b border-slate-100 hover:bg-slate-50" data-name="${p.name}">
                 <td class="px-4 py-3 text-sm text-slate-800 font-medium">${p.name}</td>
                 <td class="px-4 py-3 text-sm text-slate-500">${formatDate(p.birthDate)}</td>
                 <td class="px-4 py-3 text-sm text-slate-500">${p.gender === 'male' ? '남' : '여'}</td>
                 <td class="px-4 py-3 text-sm text-slate-500">${p.regNo || '-'}</td>
+                <td class="px-4 py-3 text-sm text-slate-500">${p.customRef || '-'}</td>
                 <td class="px-4 py-3 text-sm text-slate-500">${clinicMap[p.clinicId] || '-'}</td>
               </tr>
             `).join('')}
