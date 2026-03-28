@@ -9,18 +9,35 @@ import { renderGrowthChart, initGrowthChart, destroyChart } from '../components/
 import { renderProgressChart, initProgressChart, destroyProgressChart } from '../components/progressChart.js';
 import { openModal } from '../components/modal.js';
 import { getState, setState } from '../state.js';
-import { getPatients, searchPatients, getPatientById, addPatient, addMeasurement, deleteRecord, addTreatment, removeTreatment, deletePatient } from '../data/dataService.js';
+import { getPatients, searchPatients, getPatientById, addPatient, addMeasurement, deleteRecord, addTreatment, removeTreatment, deletePatient, updatePatient } from '../data/dataService.js';
 import { todayStr, calcAge, progressLabel } from '../utils.js';
 
 let currentSearchQuery = '';
+
+let isLoadingPatients = false;
 
 export async function renderDoctorScreen(container) {
   const user = getState().currentUser;
   if (!user) return;
 
+  // Show loading state on first render
+  if (!isLoadingPatients) {
+    isLoadingPatients = true;
+    const nav = renderNavbar({ title: '근시관리 트래커', subtitle: user.clinicName, user });
+    container.innerHTML = `
+      ${nav.html}
+      <div class="flex">
+        <main class="flex-1 min-h-[calc(100vh-56px)] flex items-center justify-center">
+          <div class="text-slate-400 text-lg">로딩 중...</div>
+        </main>
+      </div>
+    `;
+  }
+
   const patients = currentSearchQuery
     ? await searchPatients(currentSearchQuery, user.clinicId)
     : await getPatients(user.clinicId);
+  isLoadingPatients = false;
 
   const selectedPatient = getState().currentPatient || patients[0] || null;
   if (selectedPatient && !getState().currentPatient) {
@@ -82,7 +99,12 @@ function renderPatientContent(patient, patients) {
   return `
     ${mobileChips}
     <div class="max-w-5xl mx-auto p-4 sm:p-6 space-y-5">
-      ${renderPatientInfoBar(patient)}
+      <div class="flex items-center gap-2">
+        <div class="flex-1">${renderPatientInfoBar(patient)}</div>
+        <button id="editPatientBtn" class="p-2 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-primary-600 transition-colors" title="환자 정보 수정">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+        </button>
+      </div>
 
       <div class="flex items-center justify-between">
         <span class="text-sm ${prog.cls}">${prog.text}</span>
@@ -92,6 +114,9 @@ function renderPatientContent(patient, patients) {
             새 측정
           </button>
           <button id="exportCsvBtn" class="px-4 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition-colors">CSV</button>
+          <button id="deletePatientBtn" class="px-3 py-2 border border-red-200 rounded-lg text-sm text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors flex items-center gap-1.5" title="환자 삭제">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          </button>
         </div>
       </div>
 
@@ -186,6 +211,8 @@ function bindDoctorEvents(container, user, patients, selectedPatient) {
       const type = container.querySelector('#treatmentTypeSelect').value;
       const date = container.querySelector('#treatmentDateInput').value;
       if (type && date) {
+        treatmentConfirm.disabled = true;
+        treatmentConfirm.textContent = '추가 중...';
         await addTreatment(selectedPatient.id, { type, date });
         setState({ currentPatient: await getPatientById(selectedPatient.id) });
         await renderDoctorScreen(container);
@@ -195,6 +222,8 @@ function bindDoctorEvents(container, user, patients, selectedPatient) {
   container.querySelectorAll('.treatment-remove').forEach(btn => {
     btn.addEventListener('click', async () => {
       if (selectedPatient) {
+        btn.disabled = true;
+        btn.classList.add('opacity-50', 'pointer-events-none');
         await removeTreatment(selectedPatient.id, btn.dataset.id);
         setState({ currentPatient: await getPatientById(selectedPatient.id) });
         await renderDoctorScreen(container);
@@ -206,6 +235,8 @@ function bindDoctorEvents(container, user, patients, selectedPatient) {
   container.querySelectorAll('.record-delete').forEach(btn => {
     btn.addEventListener('click', async () => {
       if (selectedPatient && confirm('이 측정 기록을 삭제하시겠습니까?')) {
+        btn.disabled = true;
+        btn.classList.add('opacity-50', 'pointer-events-none');
         await deleteRecord(selectedPatient.id, btn.dataset.id);
         setState({ currentPatient: await getPatientById(selectedPatient.id) });
         await renderDoctorScreen(container);
@@ -231,6 +262,26 @@ function bindDoctorEvents(container, user, patients, selectedPatient) {
   const csvBtn = container.querySelector('#exportCsvBtn');
   if (csvBtn && selectedPatient) {
     csvBtn.addEventListener('click', () => exportCSV(selectedPatient));
+  }
+
+  // Delete patient
+  const deletePatientBtn = container.querySelector('#deletePatientBtn');
+  if (deletePatientBtn && selectedPatient) {
+    deletePatientBtn.addEventListener('click', async () => {
+      if (confirm('이 환자를 삭제하시겠습니까? 모든 측정 및 치료 기록이 함께 삭제됩니다.')) {
+        deletePatientBtn.disabled = true;
+        deletePatientBtn.classList.add('opacity-50', 'pointer-events-none');
+        await deletePatient(selectedPatient.id);
+        setState({ currentPatient: null });
+        await renderDoctorScreen(container);
+      }
+    });
+  }
+
+  // Edit patient
+  const editPatientBtn = container.querySelector('#editPatientBtn');
+  if (editPatientBtn && selectedPatient) {
+    editPatientBtn.addEventListener('click', () => openEditPatientModal(container, selectedPatient));
   }
 }
 
@@ -281,6 +332,52 @@ function openAddPatientModal(container, user) {
   });
 }
 
+function openEditPatientModal(container, patient) {
+  if (!patient) return;
+  const modal = openModal('환자 정보 수정', `
+    <div class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1.5">환자 이름</label>
+        <input type="text" id="editPatientName" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary-400" value="${patient.name}">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1.5">생년월일</label>
+        <input type="date" id="editPatientBirth" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary-400" value="${patient.birthDate}">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1.5">등록번호</label>
+        <input type="text" id="editPatientRegNo" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary-400" value="${patient.regNo || ''}" placeholder="2024-001">
+      </div>
+      <div class="flex gap-3 pt-2">
+        <button id="cancelEditPatient" class="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50">취소</button>
+        <button id="confirmEditPatient" class="flex-1 py-2.5 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700">저장</button>
+      </div>
+    </div>
+  `);
+
+  modal.element.querySelector('#cancelEditPatient').addEventListener('click', modal.close);
+  modal.element.querySelector('#confirmEditPatient').addEventListener('click', async () => {
+    const name = modal.element.querySelector('#editPatientName').value.trim();
+    const birthDate = modal.element.querySelector('#editPatientBirth').value;
+    const regNo = modal.element.querySelector('#editPatientRegNo').value.trim();
+    if (!name || !birthDate) return;
+
+    const saveBtn = modal.element.querySelector('#confirmEditPatient');
+    saveBtn.disabled = true;
+    saveBtn.textContent = '저장 중...';
+
+    const success = await updatePatient(patient.id, { name, birthDate, regNo });
+    if (success) {
+      setState({ currentPatient: await getPatientById(patient.id) });
+      modal.close();
+      await renderDoctorScreen(container);
+    } else {
+      saveBtn.disabled = false;
+      saveBtn.textContent = '저장';
+    }
+  });
+}
+
 function openAddMeasurementModal(container, patient) {
   if (!patient) return;
   const modal = openModal('측정 입력', `
@@ -315,6 +412,11 @@ function openAddMeasurementModal(container, patient) {
     const odSE = parseFloat(modal.element.querySelector('#measOdSE').value);
     const osSE = parseFloat(modal.element.querySelector('#measOsSE').value);
     if (!date || isNaN(odAL) || isNaN(osAL)) return;
+
+    const btn = modal.element.querySelector('#confirmMeasurement');
+    btn.disabled = true;
+    btn.textContent = '저장 중...';
+
     await addMeasurement(patient.id, { date, odAL, osAL, odSE: isNaN(odSE) ? null : odSE, osSE: isNaN(osSE) ? null : osSE });
     setState({ currentPatient: await getPatientById(patient.id) });
     modal.close();

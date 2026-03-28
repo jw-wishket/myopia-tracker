@@ -134,6 +134,16 @@ export async function deletePatient(id) {
   await supabase.from('patients').delete().eq('id', id);
 }
 
+export async function updatePatient(id, updates) {
+  const dbUpdates = {};
+  if (updates.name !== undefined) dbUpdates.name = updates.name;
+  if (updates.birthDate !== undefined) dbUpdates.birth_date = updates.birthDate;
+  if (updates.regNo !== undefined) dbUpdates.reg_no = updates.regNo;
+  const { error } = await supabase.from('patients').update(dbUpdates).eq('id', id);
+  if (error) { console.error('updatePatient error:', error); return false; }
+  return true;
+}
+
 // ============================================
 // Measurements
 // ============================================
