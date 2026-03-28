@@ -269,3 +269,58 @@ export async function changePassword(newPassword) {
 export async function resetData() {
   // No-op for Supabase (data persists in cloud)
 }
+
+// ============================================
+// Notes
+// ============================================
+export async function getNotes(patientId) {
+  const { data } = await supabase.from('notes').select('*').eq('patient_id', patientId).order('created_at', { ascending: false });
+  return (data || []).map(n => ({ id: n.id, content: n.content, createdAt: n.created_at }));
+}
+
+export async function addNote(patientId, content) {
+  const { data: { user } } = await supabase.auth.getUser();
+  const { data, error } = await supabase.from('notes').insert({ patient_id: patientId, content, created_by: user?.id }).select().single();
+  if (error) { console.error('addNote error:', error); return null; }
+  return { id: data.id, content: data.content, createdAt: data.created_at };
+}
+
+export async function deleteNote(noteId) {
+  await supabase.from('notes').delete().eq('id', noteId);
+}
+
+// ============================================
+// CSV Import
+// ============================================
+export async function importMeasurements(patientId, records) {
+  const { data: patient } = await supabase.from('patients').select('*').eq('id', patientId).single();
+  if (!patient) return { success: 0, errors: [] };
+
+  let success = 0;
+  const errors = [];
+
+  for (const r of records) {
+    try {
+      const age = calcAge(patient.birth_date, r.date);
+      const odPct = r.odAL ? calcPct(patient.gender, age, r.odAL) : null;
+      const osPct = r.osAL ? calcPct(patient.gender, age, r.osAL) : null;
+
+      const { error } = await supabase.from('measurements').insert({
+        patient_id: patientId,
+        date: r.date,
+        age,
+        od_al: r.odAL || null,
+        os_al: r.osAL || null,
+        od_se: r.odSE || null,
+        os_se: r.osSE || null,
+        od_pct: odPct != null ? String(odPct) : null,
+        os_pct: osPct != null ? String(osPct) : null,
+      });
+      if (error) throw error;
+      success++;
+    } catch (e) {
+      errors.push(`${r.date}: ${e.message}`);
+    }
+  }
+  return { success, errors };
+}

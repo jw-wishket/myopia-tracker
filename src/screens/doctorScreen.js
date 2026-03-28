@@ -11,11 +11,13 @@ import { renderProgressReport } from '../components/progressReport.js';
 import { renderTreatmentComparison } from '../components/treatmentComparison.js';
 import { openModal } from '../components/modal.js';
 import { getState, setState } from '../state.js';
-import { getPatients, searchPatients, getPatientById, addPatient, addMeasurement, deleteRecord, addTreatment, removeTreatment, deletePatient, updatePatient, logout, resetData, changePassword } from '../data/dataService.js';
+import { getPatients, searchPatients, getPatientById, addPatient, addMeasurement, deleteRecord, addTreatment, removeTreatment, deletePatient, updatePatient, logout, resetData, changePassword, getNotes, addNote, deleteNote, importMeasurements } from '../data/dataService.js';
+import { renderPatientNotes } from '../components/patientNotes.js';
 import { todayStr, calcAge, progressLabel } from '../utils.js';
 
 let currentSearchQuery = '';
 let measurementFilter = 'all';
+let currentNotes = [];
 
 let isLoadingPatients = false;
 
@@ -45,6 +47,12 @@ export async function renderDoctorScreen(container) {
   const selectedPatient = getState().currentPatient || patients[0] || null;
   if (selectedPatient && !getState().currentPatient) {
     setState({ currentPatient: selectedPatient });
+  }
+
+  if (selectedPatient) {
+    currentNotes = await getNotes(selectedPatient.id);
+  } else {
+    currentNotes = [];
   }
 
   const nav = renderNavbar({ title: '근시관리 트래커', subtitle: user.clinicName, user });
@@ -116,6 +124,10 @@ function renderPatientContent(patient, patients) {
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
             새 측정
           </button>
+          <button id="importCsvBtn" class="px-4 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition-colors flex items-center gap-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+            가져오기
+          </button>
           <button id="exportCsvBtn" class="px-4 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition-colors">CSV</button>
           <button id="deletePatientBtn" class="px-3 py-2 border border-red-200 rounded-lg text-sm text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors flex items-center gap-1.5" title="환자 삭제">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
@@ -172,6 +184,11 @@ function renderPatientContent(patient, patients) {
           </div>
         </div>
         ${renderMeasurementTable(filterRecords(patient.records), { editable: true })}
+      </div>
+
+      <div class="bg-white rounded-2xl border border-slate-200 p-5">
+        <h3 class="text-sm font-semibold text-slate-800 mb-4">메모</h3>
+        ${renderPatientNotes(currentNotes, true)}
       </div>
     </div>
   `;
@@ -354,6 +371,38 @@ function bindDoctorEvents(container, user, patients, selectedPatient) {
       await renderDoctorScreen(container);
     });
   });
+
+  // Notes: add
+  const addNoteBtn = container.querySelector('#addNoteBtn');
+  if (addNoteBtn && selectedPatient) {
+    addNoteBtn.addEventListener('click', async () => {
+      const input = container.querySelector('#noteInput');
+      const content = input?.value.trim();
+      if (!content) return;
+      addNoteBtn.disabled = true;
+      addNoteBtn.textContent = '추가 중...';
+      await addNote(selectedPatient.id, content);
+      await renderDoctorScreen(container);
+    });
+  }
+
+  // Notes: delete
+  container.querySelectorAll('.note-delete').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (selectedPatient && confirm('이 메모를 삭제하시겠습니까?')) {
+        btn.disabled = true;
+        btn.classList.add('opacity-50', 'pointer-events-none');
+        await deleteNote(btn.dataset.noteId);
+        await renderDoctorScreen(container);
+      }
+    });
+  });
+
+  // CSV import
+  const importBtn = container.querySelector('#importCsvBtn');
+  if (importBtn && selectedPatient) {
+    importBtn.addEventListener('click', () => openImportCsvModal(container, selectedPatient));
+  }
 }
 
 function openAddPatientModal(container, user) {
@@ -504,6 +553,117 @@ function exportCSV(patient) {
   link.href = URL.createObjectURL(blob);
   link.download = `${patient.name}_measurements.csv`;
   link.click();
+}
+
+function openImportCsvModal(container, patient) {
+  if (!patient) return;
+  let parsedRecords = [];
+
+  const modal = openModal('데이터 가져오기', `
+    <div class="space-y-4">
+      <div class="px-3 py-2 bg-primary-50 rounded-lg text-sm text-primary-700 font-medium">${patient.name}</div>
+      <div class="p-3 bg-slate-50 rounded-lg">
+        <p class="text-xs text-slate-600 font-medium mb-1">CSV 형식:</p>
+        <p class="text-xs text-slate-500 font-mono">날짜,나이,OD_AL,OS_AL,OD_SE,OS_SE</p>
+        <p class="text-xs text-slate-400 mt-1">* 나이는 자동 재계산됩니다. 내보낸 CSV와 동일한 형식을 사용하세요.</p>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1.5">CSV 파일 선택</label>
+        <input type="file" id="csvFileInput" accept=".csv" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-primary-50 file:text-primary-700">
+      </div>
+      <div id="csvPreview" class="hidden">
+        <p class="text-sm font-medium text-slate-700 mb-2">미리보기 (<span id="csvRowCount">0</span>행)</p>
+        <div class="max-h-48 overflow-auto border border-slate-200 rounded-lg">
+          <table class="w-full text-xs">
+            <thead class="bg-slate-50 sticky top-0"><tr><th class="px-2 py-1.5 text-left">날짜</th><th class="px-2 py-1.5">OD AL</th><th class="px-2 py-1.5">OS AL</th><th class="px-2 py-1.5">OD SE</th><th class="px-2 py-1.5">OS SE</th></tr></thead>
+            <tbody id="csvPreviewBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div id="csvResult" class="hidden text-sm"></div>
+      <div class="flex gap-3 pt-2">
+        <button id="cancelImport" class="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50">취소</button>
+        <button id="confirmImport" class="flex-1 py-2.5 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed" disabled>가져오기</button>
+      </div>
+    </div>
+  `);
+
+  const fileInput = modal.element.querySelector('#csvFileInput');
+  const previewDiv = modal.element.querySelector('#csvPreview');
+  const previewBody = modal.element.querySelector('#csvPreviewBody');
+  const rowCountSpan = modal.element.querySelector('#csvRowCount');
+  const confirmBtn = modal.element.querySelector('#confirmImport');
+  const resultDiv = modal.element.querySelector('#csvResult');
+
+  fileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const text = evt.target.result;
+      const lines = text.split(/\r?\n/).filter(l => l.trim());
+      // Skip header row
+      const dataLines = lines.slice(1);
+      parsedRecords = [];
+      previewBody.innerHTML = '';
+
+      for (const line of dataLines) {
+        const cols = line.split(',');
+        if (cols.length < 4) continue;
+        const date = cols[0]?.trim();
+        if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+        const odAL = parseFloat(cols[2]);
+        const osAL = parseFloat(cols[3]);
+        const odSE = cols[4] !== undefined ? parseFloat(cols[4]) : NaN;
+        const osSE = cols[5] !== undefined ? parseFloat(cols[5]) : NaN;
+
+        if (isNaN(odAL) && isNaN(osAL)) continue;
+
+        const record = {
+          date,
+          odAL: isNaN(odAL) ? null : odAL,
+          osAL: isNaN(osAL) ? null : osAL,
+          odSE: isNaN(odSE) ? null : odSE,
+          osSE: isNaN(osSE) ? null : osSE,
+        };
+        parsedRecords.push(record);
+        previewBody.innerHTML += `<tr class="border-t border-slate-100"><td class="px-2 py-1">${date}</td><td class="px-2 py-1 text-center">${record.odAL ?? '-'}</td><td class="px-2 py-1 text-center">${record.osAL ?? '-'}</td><td class="px-2 py-1 text-center">${record.odSE ?? '-'}</td><td class="px-2 py-1 text-center">${record.osSE ?? '-'}</td></tr>`;
+      }
+
+      rowCountSpan.textContent = parsedRecords.length;
+      previewDiv.classList.toggle('hidden', parsedRecords.length === 0);
+      confirmBtn.disabled = parsedRecords.length === 0;
+    };
+    reader.readAsText(file);
+  });
+
+  modal.element.querySelector('#cancelImport').addEventListener('click', modal.close);
+
+  confirmBtn.addEventListener('click', async () => {
+    if (parsedRecords.length === 0) return;
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = '가져오는 중...';
+    resultDiv.classList.remove('hidden');
+    resultDiv.textContent = '처리 중...';
+
+    const { success, errors } = await importMeasurements(patient.id, parsedRecords);
+
+    let msg = `${success}건 가져오기 완료`;
+    if (errors.length > 0) {
+      msg += `, ${errors.length}건 오류`;
+      resultDiv.innerHTML = `<p class="text-emerald-600 font-medium">${msg}</p><ul class="mt-1 text-red-500 text-xs list-disc pl-4">${errors.map(e => `<li>${e}</li>`).join('')}</ul>`;
+    } else {
+      resultDiv.innerHTML = `<p class="text-emerald-600 font-medium">${msg}</p>`;
+    }
+
+    confirmBtn.textContent = '완료';
+    // Re-render after short delay
+    setTimeout(async () => {
+      setState({ currentPatient: await getPatientById(patient.id) });
+      modal.close();
+      await renderDoctorScreen(container);
+    }, 1500);
+  });
 }
 
 function openSettingsModal(container) {
