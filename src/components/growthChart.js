@@ -3,7 +3,24 @@ import annotationPlugin from 'chartjs-plugin-annotation';
 import { OD_COLOR, OS_COLOR, TREATMENT_COLORS, PERCENTILE_CURVE_STYLES } from '../constants.js';
 import { generateCurveData } from '../utils.js';
 
-Chart.register(...registerables, annotationPlugin);
+const watermarkPlugin = {
+  id: 'watermark',
+  afterDraw(chart) {
+    const ctx = chart.ctx;
+    ctx.save();
+    ctx.globalAlpha = 0.06;
+    ctx.font = 'bold 48px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#2563eb';
+    const centerX = (chart.chartArea.left + chart.chartArea.right) / 2;
+    const centerY = (chart.chartArea.top + chart.chartArea.bottom) / 2;
+    ctx.fillText('근시관리 트래커', centerX, centerY);
+    ctx.restore();
+  }
+};
+
+Chart.register(...registerables, annotationPlugin, watermarkPlugin);
 
 let chartInstances = {};
 

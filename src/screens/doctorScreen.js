@@ -9,6 +9,7 @@ import { renderGrowthChart, initGrowthChart, destroyChart } from '../components/
 import { renderProgressChart, initProgressChart, destroyProgressChart } from '../components/progressChart.js';
 import { renderProgressReport } from '../components/progressReport.js';
 import { renderTreatmentComparison } from '../components/treatmentComparison.js';
+import { renderRateTable } from '../components/rateTable.js';
 import { openModal } from '../components/modal.js';
 import { getState, setState } from '../state.js';
 import { getPatients, searchPatients, getPatientById, addPatient, addMeasurement, deleteRecord, addTreatment, removeTreatment, deletePatient, updatePatient, logout, resetData, changePassword, getNotes, addNote, deleteNote, importMeasurements } from '../data/dataService.js';
@@ -173,6 +174,11 @@ function renderPatientContent(patient, patients) {
           <h3 class="text-sm font-semibold text-slate-800 mb-4">치료 효과 분석</h3>
           ${renderTreatmentComparison(patient)}
         </div>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-slate-200 p-5">
+        <h3 class="text-sm font-semibold text-slate-800 mb-4">구간별 진행 속도</h3>
+        ${renderRateTable(patient.records)}
       </div>
 
       <div class="bg-white rounded-2xl border border-slate-200 p-5">

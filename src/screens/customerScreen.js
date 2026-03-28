@@ -6,6 +6,7 @@ import { renderMeasurementTable } from '../components/measurementTable.js';
 import { renderPatientInfoBar } from '../components/patientInfoBar.js';
 import { renderGrowthChart, initGrowthChart, destroyChart } from '../components/growthChart.js';
 import { renderProgressReport } from '../components/progressReport.js';
+import { renderRateTable } from '../components/rateTable.js';
 import { openModal } from '../components/modal.js';
 import { getState, setState } from '../state.js';
 import { getPatients, getPatientById, logout, changePassword, updateProfile } from '../data/dataService.js';
@@ -140,6 +141,11 @@ function renderChildDetail(patient) {
     <div class="bg-white rounded-2xl border border-slate-200 p-5">
       <h3 class="text-sm font-semibold text-slate-800 mb-4">진행 속도 분석</h3>
       ${renderProgressReport(patient)}
+    </div>
+
+    <div class="bg-white rounded-2xl border border-slate-200 p-5">
+      <h3 class="text-sm font-semibold text-slate-800 mb-4">구간별 진행 속도</h3>
+      ${renderRateTable(patient.records)}
     </div>
 
     <div class="bg-white rounded-2xl border border-slate-200 p-5">
