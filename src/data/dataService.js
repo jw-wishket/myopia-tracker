@@ -502,7 +502,30 @@ export async function updateProfile(updates) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return false;
   const dbUpdates = {};
-  if (updates.children !== undefined) dbUpdates.children = updates.children;
+
+  if (updates.children !== undefined) {
+    // Validate children entries - remove any patientId that doesn't exist or doesn't match
+    const validatedChildren = [];
+    for (const child of updates.children) {
+      const entry = { name: child.name, birthDate: child.birthDate };
+      if (child.clinicId) entry.clinicId = child.clinicId;
+
+      if (child.patientId) {
+        // Verify patient exists and matches name+birthDate
+        const { data: patient } = await supabase.from('patients')
+          .select('id, name, birth_date')
+          .eq('id', child.patientId)
+          .single();
+        if (patient && patient.name === child.name && patient.birth_date === child.birthDate) {
+          entry.patientId = child.patientId;
+        }
+        // If validation fails, keep the child entry but without patientId
+      }
+      validatedChildren.push(entry);
+    }
+    dbUpdates.children = validatedChildren;
+  }
+
   if (updates.name !== undefined) dbUpdates.name = updates.name;
   if (updates.clinicId !== undefined) { dbUpdates.clinic_id = updates.clinicId; }
   if (updates.clinicName !== undefined) { dbUpdates.clinic_name = updates.clinicName; }

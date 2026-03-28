@@ -843,9 +843,9 @@ function openImportCsvModal(container, patient) {
     let msg = `${success}건 가져오기 완료`;
     if (errors.length > 0) {
       msg += `, ${errors.length}건 오류`;
-      resultDiv.innerHTML = `<p class="text-emerald-600 font-medium">${msg}</p><ul class="mt-1 text-red-500 text-xs list-disc pl-4">${errors.map(e => `<li>${e}</li>`).join('')}</ul>`;
+      resultDiv.innerHTML = `<p class="text-emerald-600 font-medium">${escapeHtml(msg)}</p><ul class="mt-1 text-red-500 text-xs list-disc pl-4">${errors.map(e => `<li>${escapeHtml(e)}</li>`).join('')}</ul>`;
     } else {
-      resultDiv.innerHTML = `<p class="text-emerald-600 font-medium">${msg}</p>`;
+      resultDiv.innerHTML = `<p class="text-emerald-600 font-medium">${escapeHtml(msg)}</p>`;
     }
 
     confirmBtn.textContent = '완료';
