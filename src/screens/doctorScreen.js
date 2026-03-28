@@ -12,7 +12,7 @@ import { renderTreatmentComparison } from '../components/treatmentComparison.js'
 import { renderRateTable } from '../components/rateTable.js';
 import { openModal } from '../components/modal.js';
 import { getState, setState } from '../state.js';
-import { getPatients, searchPatients, getPatientById, addPatient, addMeasurement, deleteRecord, addTreatment, removeTreatment, updateTreatment, deletePatient, updatePatient, logout, resetData, changePassword, getNotes, addNote, deleteNote, importMeasurements, exportClinicData, getOverduePatients } from '../data/dataService.js';
+import { getPatients, searchPatients, getPatientById, addPatient, addMeasurement, deleteRecord, addTreatment, removeTreatment, updateTreatment, deletePatient, updatePatient, logout, resetData, changePassword, getNotes, addNote, deleteNote, importMeasurements, exportClinicData, getOverduePatients, getTreatmentTypes, addTreatmentType } from '../data/dataService.js';
 import { renderPatientNotes } from '../components/patientNotes.js';
 import { todayStr, calcAge, progressLabel } from '../utils.js';
 import { showSyncStatus } from '../components/syncStatus.js';
@@ -21,6 +21,7 @@ import { openPrintReport } from '../components/printReport.js';
 let currentSearchQuery = '';
 let measurementFilter = 'all';
 let currentNotes = [];
+let cachedTreatmentTypes = [];
 
 let isLoadingPatients = false;
 
@@ -42,9 +43,13 @@ export async function renderDoctorScreen(container) {
     `;
   }
 
-  const patients = currentSearchQuery
-    ? await searchPatients(currentSearchQuery, user.clinicId)
-    : await getPatients(user.clinicId);
+  const [patients, treatmentTypes] = await Promise.all([
+    currentSearchQuery
+      ? searchPatients(currentSearchQuery, user.clinicId)
+      : getPatients(user.clinicId),
+    getTreatmentTypes(),
+  ]);
+  cachedTreatmentTypes = treatmentTypes;
   isLoadingPatients = false;
 
   const selectedPatient = getState().currentPatient || patients[0] || null;
@@ -190,7 +195,7 @@ function renderPatientContent(patient, patients) {
         </div>
         <div class="bg-white rounded-2xl border border-slate-200 p-5">
           <h3 class="text-sm font-semibold text-slate-800 mb-4">치료 이력</h3>
-          ${renderTreatmentTags(patient.treatments, { editable: true })}
+          ${renderTreatmentTags(patient.treatments, { editable: true, treatmentTypes: cachedTreatmentTypes })}
         </div>
       </div>
 
@@ -308,10 +313,32 @@ function bindDoctorEvents(container, user, patients, selectedPatient) {
       container.querySelector('#treatmentAddForm')?.classList.toggle('hidden');
     });
   }
+  const treatmentSelect = container.querySelector('#treatmentTypeSelect');
+  const treatmentCustomInput = container.querySelector('#treatmentCustomType');
+  if (treatmentSelect && treatmentCustomInput) {
+    treatmentSelect.addEventListener('change', () => {
+      if (treatmentSelect.value === '__custom__') {
+        treatmentCustomInput.classList.remove('hidden');
+        treatmentCustomInput.focus();
+      } else {
+        treatmentCustomInput.classList.add('hidden');
+      }
+    });
+  }
   const treatmentConfirm = container.querySelector('#treatmentAddConfirm');
   if (treatmentConfirm && selectedPatient) {
     treatmentConfirm.addEventListener('click', async () => {
-      const type = container.querySelector('#treatmentTypeSelect').value;
+      const select = container.querySelector('#treatmentTypeSelect');
+      const customInput = container.querySelector('#treatmentCustomType');
+      let type = select.value;
+
+      if (type === '__custom__') {
+        type = customInput.value.trim();
+        if (!type) return;
+        // Add new treatment type to DB for future use
+        await addTreatmentType(type);
+      }
+
       const date = container.querySelector('#treatmentDateInput').value;
       if (type && date) {
         treatmentConfirm.disabled = true;

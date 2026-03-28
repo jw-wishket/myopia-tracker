@@ -389,6 +389,44 @@ export async function resetData() {
 }
 
 // ============================================
+// Treatment Types
+// ============================================
+export async function getTreatmentTypes() {
+  const { data } = await supabase.from('treatment_types')
+    .select('*')
+    .eq('is_active', true)
+    .order('sort_order');
+  return (data || []).map(t => ({ id: t.id, name: t.name, color: t.color }));
+}
+
+export async function addTreatmentType(name, color = '#7c3aed') {
+  const { data, error } = await supabase.from('treatment_types')
+    .insert({ name, color })
+    .select().single();
+  if (error) {
+    if (error.code === '23505') return null; // duplicate
+    console.error('addTreatmentType error:', error);
+    return null;
+  }
+  return { id: data.id, name: data.name, color: data.color };
+}
+
+export async function updateTreatmentType(id, updates) {
+  const dbUpdates = {};
+  if (updates.name !== undefined) dbUpdates.name = updates.name;
+  if (updates.color !== undefined) dbUpdates.color = updates.color;
+  if (updates.isActive !== undefined) dbUpdates.is_active = updates.isActive;
+  if (updates.sortOrder !== undefined) dbUpdates.sort_order = updates.sortOrder;
+  const { error } = await supabase.from('treatment_types').update(dbUpdates).eq('id', id);
+  if (error) { console.error('updateTreatmentType error:', error); return false; }
+  return true;
+}
+
+export async function deleteTreatmentType(id) {
+  await supabase.from('treatment_types').delete().eq('id', id);
+}
+
+// ============================================
 // Full Clinic Data Export
 // ============================================
 export async function exportClinicData(clinicId) {

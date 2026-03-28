@@ -4,6 +4,7 @@ import {
   getStats, getApprovalRequests, approveRequest, rejectRequest,
   getClinics, getDoctors, getAllPatients,
   adminCreateClinic, updateClinic, deleteClinic, revokeDoctor, deactivateUser,
+  getTreatmentTypes, addTreatmentType, updateTreatmentType, deleteTreatmentType,
 } from '../data/dataService.js';
 import { openModal } from '../components/modal.js';
 import { formatDate } from '../utils.js';
@@ -14,8 +15,8 @@ export async function renderAdminScreen(container) {
   const user = getState().currentUser;
   if (!user) return;
 
-  const [stats, requests, clinics, doctors, allPatients] = await Promise.all([
-    getStats(), getApprovalRequests(), getClinics(), getDoctors(), getAllPatients(),
+  const [stats, requests, clinics, doctors, allPatients, treatmentTypes] = await Promise.all([
+    getStats(), getApprovalRequests(), getClinics(), getDoctors(), getAllPatients(), getTreatmentTypes(),
   ]);
 
   const nav = renderNavbar({ title: '근시관리 트래커', subtitle: '관리자', user });
@@ -35,12 +36,14 @@ export async function renderAdminScreen(container) {
         ${tabBtn('clinics', '안과 관리')}
         ${tabBtn('doctors', '의사 목록')}
         ${tabBtn('patients', '환자 목록')}
+        ${tabBtn('treatments', '치료 관리')}
       </div>
 
       <div id="adminTabContent">
         ${activeTab === 'approvals' ? renderApprovals(requests) :
           activeTab === 'clinics' ? renderClinics(clinics, doctors, allPatients) :
           activeTab === 'doctors' ? renderDoctors(doctors) :
+          activeTab === 'treatments' ? renderTreatmentTypesTab(treatmentTypes) :
           renderPatientsList(allPatients, clinics)}
       </div>
     </main>
@@ -160,6 +163,39 @@ export async function renderAdminScreen(container) {
       });
     });
   }
+
+  // Treatment type management
+  container.querySelector('#addTreatmentTypeBtn')?.addEventListener('click', () => {
+    const modal = openModal('치료 종류 추가', `
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1.5">치료명</label>
+          <input type="text" id="newTypeName" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm" placeholder="예: 아트로핀 0.02%">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1.5">색상</label>
+          <input type="color" id="newTypeColor" class="w-full h-10 rounded-xl border border-slate-200 cursor-pointer" value="#7c3aed">
+        </div>
+        <button id="confirmAddType" class="w-full py-2.5 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 transition-colors">추가</button>
+      </div>
+    `);
+    modal.element.querySelector('#confirmAddType').addEventListener('click', async () => {
+      const name = modal.element.querySelector('#newTypeName').value.trim();
+      const color = modal.element.querySelector('#newTypeColor').value;
+      if (!name) return;
+      await addTreatmentType(name, color);
+      modal.close();
+      await renderAdminScreen(container);
+    });
+  });
+
+  container.querySelectorAll('.delete-treatment-type').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('이 치료 종류를 삭제하시겠습니까?')) return;
+      await deleteTreatmentType(btn.dataset.id);
+      await renderAdminScreen(container);
+    });
+  });
 }
 
 function statCard(label, value, color) {
@@ -313,6 +349,42 @@ function renderPatientsList(allPatients, clinics) {
             `).join('')}
         </tbody>
       </table>
+    </div>
+  `;
+}
+
+function renderTreatmentTypesTab(types) {
+  return `
+    <div class="space-y-3">
+      <div class="flex justify-end mb-2">
+        <button id="addTreatmentTypeBtn" class="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors flex items-center gap-1.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          치료 종류 추가
+        </button>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <table class="w-full">
+          <thead><tr class="border-b border-slate-200">
+            <th class="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase">색상</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase">치료명</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase w-24">관리</th>
+          </tr></thead>
+          <tbody>
+            ${types.length === 0 ? '<tr><td colspan="3" class="px-4 py-6 text-center text-sm text-slate-400">등록된 치료 종류가 없습니다</td></tr>' :
+              types.map(t => `
+              <tr class="border-b border-slate-100 hover:bg-slate-50">
+                <td class="px-4 py-3"><span class="inline-block w-4 h-4 rounded-full" style="background:${t.color}"></span></td>
+                <td class="px-4 py-3 text-sm text-slate-800">${t.name}</td>
+                <td class="px-4 py-3">
+                  <button class="delete-treatment-type text-slate-300 hover:text-red-500 transition-colors" data-id="${t.id}">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                  </button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
     </div>
   `;
 }
