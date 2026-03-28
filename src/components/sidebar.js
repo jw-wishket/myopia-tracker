@@ -1,12 +1,21 @@
+import { progressLabel } from '../utils.js';
+
 export function renderSidebar(patients, selectedId, options = {}) {
   const { onSelect, onAdd, searchQuery = '', rapidCount = 0 } = options;
 
-  const items = patients.map(p => `
+  const items = patients.map(p => {
+    const prog = p.records?.length >= 2 ? progressLabel(p.records) : null;
+    const isRapid = prog?.cls?.includes('red');
+    return `
     <button class="sidebar-patient w-full text-left px-3 py-2.5 rounded-lg text-sm transition-colors ${p.id === selectedId ? 'bg-primary-50 text-primary-700 font-medium' : 'text-slate-600 hover:bg-slate-50'}" data-id="${p.id}">
-      <div class="font-medium">${p.name}</div>
+      <div class="flex items-center gap-1.5">
+        <span class="font-medium">${p.name}</span>
+        ${isRapid ? '<span class="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" title="빠른 진행"></span>' : ''}
+      </div>
       <div class="text-xs ${p.id === selectedId ? 'text-primary-500' : 'text-slate-400'}">${p.birthDate} · ${p.gender === 'male' ? '남' : '여'}</div>
     </button>
-  `).join('');
+  `;
+  }).join('');
 
   return `
     <div class="hidden md:flex flex-col w-60 border-r border-slate-200 bg-white h-[calc(100vh-56px)] sticky top-14">
