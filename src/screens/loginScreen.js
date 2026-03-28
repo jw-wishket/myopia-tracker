@@ -1,5 +1,5 @@
 import { renderNavbar } from '../components/navbar.js';
-import { searchPatientByInfo, loginWithEmail } from '../data/dataService.js';
+import { searchPatientByInfo, loginWithEmail, resetPassword } from '../data/dataService.js';
 import { setState } from '../state.js';
 import { navigate } from '../router.js';
 
@@ -62,7 +62,7 @@ export async function renderLoginScreen(container) {
                 </div>
                 <div id="loginError" class="hidden text-sm text-red-500 text-center"></div>
                 <button id="loginBtn" class="w-full py-2.5 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 transition-colors">로그인</button>
-                <p class="text-center text-sm text-primary-600 cursor-pointer hover:underline">비밀번호 찾기</p>
+                <p id="resetPasswordLink" class="text-center text-sm text-primary-600 cursor-pointer hover:underline">비밀번호 찾기</p>
               </div>
             </div>
 
@@ -143,7 +143,35 @@ export async function renderLoginScreen(container) {
       const route = user.role === 'admin' ? 'admin' : user.role === 'customer' ? 'customer' : 'doctor';
       navigate(route);
     } catch (err) {
-      errEl.textContent = err.message || '로그인에 실패했습니다';
+      const msg = err.message || '';
+      const koreanErrors = {
+        'Invalid login credentials': '이메일 또는 비밀번호가 올바르지 않습니다',
+        'Email not confirmed': '이메일 인증이 완료되지 않았습니다',
+        'User not found': '등록되지 않은 이메일입니다',
+      };
+      errEl.textContent = koreanErrors[msg] || '로그인에 실패했습니다';
+      errEl.classList.remove('hidden');
+    }
+  });
+
+  // Password reset
+  container.querySelector('#resetPasswordLink').addEventListener('click', async () => {
+    const email = container.querySelector('#loginEmail').value.trim();
+    const errEl = container.querySelector('#loginError');
+    errEl.classList.add('hidden');
+    if (!email) {
+      errEl.textContent = '이메일을 입력해주세요';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    try {
+      await resetPassword(email);
+      errEl.textContent = '비밀번호 재설정 링크를 이메일로 보냈습니다';
+      errEl.classList.remove('hidden');
+      errEl.classList.remove('text-red-500');
+      errEl.classList.add('text-green-600');
+    } catch (err) {
+      errEl.textContent = '비밀번호 재설정에 실패했습니다';
       errEl.classList.remove('hidden');
     }
   });

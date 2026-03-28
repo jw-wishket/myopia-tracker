@@ -201,6 +201,17 @@ export async function getClinics() {
   return (data || []).map(c => ({ id: c.id, name: c.name, createdBy: c.created_by }));
 }
 
+export async function createClinic(name) {
+  const { data, error } = await supabase.from('clinics').insert({ name }).select().single();
+  if (error) { console.error('createClinic error:', error); return null; }
+  return { id: data.id, name: data.name, createdBy: data.created_by };
+}
+
+export async function resetPassword(email) {
+  const { error } = await supabase.auth.resetPasswordForEmail(email);
+  if (error) throw error;
+}
+
 // ============================================
 // Admin
 // ============================================

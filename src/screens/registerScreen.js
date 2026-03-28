@@ -1,11 +1,12 @@
 import { renderNavbar } from '../components/navbar.js';
 import { navigate } from '../router.js';
-import { getClinics, registerWithEmail } from '../data/dataService.js';
+import { getClinics, createClinic, registerWithEmail } from '../data/dataService.js';
 import { pendingRegistration } from './loginScreen.js';
 
 let step = 1;
 let selectedRole = 'customer';
 let selectedClinic = null;
+let newClinicName = null;
 let children = [];
 
 export async function renderRegisterScreen(container) {
@@ -68,15 +69,26 @@ async function renderStep2() {
       <input type="text" id="clinicSearch" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 mb-3" placeholder="안과 검색...">
       <div id="clinicList" class="space-y-2">
         ${clinics.map(c => `
-          <div class="clinic-item px-4 py-3 rounded-xl border border-slate-200 cursor-pointer hover:border-primary-400 transition-colors flex items-center justify-between ${selectedClinic?.id === c.id ? 'border-primary-500 bg-primary-50' : ''}" data-id="${c.id}" data-name="${c.name}">
+          <div class="clinic-item px-4 py-3 rounded-xl border border-slate-200 cursor-pointer hover:border-primary-400 transition-colors flex items-center justify-between ${selectedClinic?.id === c.id && !newClinicName ? 'border-primary-500 bg-primary-50' : ''}" data-id="${c.id}" data-name="${c.name}">
             <span class="text-sm font-medium text-slate-800">${c.name}</span>
-            ${selectedClinic?.id === c.id ? '<svg class="w-5 h-5 text-primary-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>' : ''}
+            ${selectedClinic?.id === c.id && !newClinicName ? '<svg class="w-5 h-5 text-primary-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>' : ''}
           </div>
         `).join('')}
       </div>
+      <div class="mt-3 border-t border-slate-100 pt-3">
+        <p class="text-sm text-slate-500 mb-2">찾는 안과가 없나요?</p>
+        <div class="flex gap-2">
+          <input type="text" id="newClinicInput" class="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary-400" placeholder="새 안과 이름 입력" value="${newClinicName || ''}">
+          <button id="addNewClinicBtn" class="px-4 py-2.5 border border-dashed border-primary-300 text-primary-600 rounded-xl text-sm font-medium hover:bg-primary-50">등록</button>
+        </div>
+        ${newClinicName ? `<div class="mt-2 px-4 py-3 rounded-xl border border-primary-500 bg-primary-50 flex items-center justify-between">
+          <span class="text-sm font-medium text-slate-800">${newClinicName} <span class="text-xs text-primary-600">(새 안과)</span></span>
+          <svg class="w-5 h-5 text-primary-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+        </div>` : ''}
+      </div>
       <div class="flex gap-3 mt-5">
         <button id="regBack2" class="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-600">이전</button>
-        <button id="regNext2" class="flex-1 py-2.5 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 ${!selectedClinic ? 'opacity-50' : ''}">다음</button>
+        <button id="regNext2" class="flex-1 py-2.5 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 ${!selectedClinic && !newClinicName ? 'opacity-50' : ''}">다음</button>
       </div>
     </div>
   `;
@@ -131,7 +143,7 @@ function bindRegisterEvents(container) {
     await renderRegisterScreen(container);
   });
   container.querySelector('#regBack2')?.addEventListener('click', async () => { step = 1; await renderRegisterScreen(container); });
-  container.querySelector('#regNext2')?.addEventListener('click', async () => { if (selectedClinic) { step = 3; await renderRegisterScreen(container); } });
+  container.querySelector('#regNext2')?.addEventListener('click', async () => { if (selectedClinic || newClinicName) { step = 3; await renderRegisterScreen(container); } });
   container.querySelector('#regBack3')?.addEventListener('click', async () => { step = 2; await renderRegisterScreen(container); });
   container.querySelector('#regComplete')?.addEventListener('click', async () => {
     const errEl = container.querySelector('#regCompleteError');
@@ -146,6 +158,16 @@ function bindRegisterEvents(container) {
     }
 
     try {
+      let clinicId = selectedClinic?.id || null;
+      let clinicName = selectedClinic?.name || null;
+      if (newClinicName) {
+        const newClinic = await createClinic(newClinicName);
+        if (newClinic) {
+          clinicId = newClinic.id;
+          clinicName = newClinic.name;
+        }
+      }
+
       if (selectedRole === 'doctor') {
         const doctorName = container.querySelector('#doctorNameInput')?.value?.trim() || '';
         if (!doctorName) {
@@ -158,21 +180,21 @@ function bindRegisterEvents(container) {
         await registerWithEmail(pendingRegistration.email, pendingRegistration.password, {
           name: doctorName,
           role: 'doctor',
-          clinicId: selectedClinic?.id || null,
-          clinicName: selectedClinic?.name || null,
+          clinicId,
+          clinicName,
         });
-        step = 1; selectedClinic = null; children = [];
+        step = 1; selectedClinic = null; newClinicName = null; children = [];
         navigate('pending');
       } else {
         const userName = children[0]?.name || 'User';
         await registerWithEmail(pendingRegistration.email, pendingRegistration.password, {
           name: userName,
           role: 'customer',
-          clinicId: selectedClinic?.id || null,
-          clinicName: selectedClinic?.name || null,
+          clinicId,
+          clinicName,
           children: children,
         });
-        step = 1; selectedClinic = null; children = [];
+        step = 1; selectedClinic = null; newClinicName = null; children = [];
         navigate('login');
       }
     } catch (err) {
@@ -185,8 +207,17 @@ function bindRegisterEvents(container) {
   container.querySelectorAll('.clinic-item').forEach(item => {
     item.addEventListener('click', async () => {
       selectedClinic = { id: item.dataset.id, name: item.dataset.name };
+      newClinicName = null;
       await renderRegisterScreen(container);
     });
+  });
+  container.querySelector('#addNewClinicBtn')?.addEventListener('click', async () => {
+    const name = container.querySelector('#newClinicInput')?.value?.trim();
+    if (name) {
+      newClinicName = name;
+      selectedClinic = null;
+      await renderRegisterScreen(container);
+    }
   });
   container.querySelector('#addChildBtn')?.addEventListener('click', async () => {
     const name = container.querySelector('#childName').value.trim();
