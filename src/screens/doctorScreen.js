@@ -12,7 +12,7 @@ import { renderTreatmentComparison } from '../components/treatmentComparison.js'
 import { renderRateTable } from '../components/rateTable.js';
 import { openModal } from '../components/modal.js';
 import { getState, setState } from '../state.js';
-import { getPatients, searchPatients, getPatientById, addPatient, addMeasurement, deleteRecord, addTreatment, removeTreatment, deletePatient, updatePatient, logout, resetData, changePassword, getNotes, addNote, deleteNote, importMeasurements } from '../data/dataService.js';
+import { getPatients, searchPatients, getPatientById, addPatient, addMeasurement, deleteRecord, addTreatment, removeTreatment, updateTreatment, deletePatient, updatePatient, logout, resetData, changePassword, getNotes, addNote, deleteNote, importMeasurements } from '../data/dataService.js';
 import { renderPatientNotes } from '../components/patientNotes.js';
 import { todayStr, calcAge, progressLabel } from '../utils.js';
 import { showSyncStatus } from '../components/syncStatus.js';
@@ -289,6 +289,15 @@ function bindDoctorEvents(container, user, patients, selectedPatient) {
       }
     });
   });
+  container.querySelectorAll('.treatment-end').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (confirm('이 치료를 종료 처리하시겠습니까?')) {
+        await updateTreatment(btn.dataset.id, { endDate: todayStr() });
+        setState({ currentPatient: await getPatientById(selectedPatient.id) });
+        await renderDoctorScreen(container);
+      }
+    });
+  });
 
   // Delete record
   container.querySelectorAll('.record-delete').forEach(btn => {
@@ -457,13 +466,18 @@ function openAddPatientModal(container, user) {
     const customRef = modal.element.querySelector('#newPatientCustomRef').value.trim();
     if (!name || !birthDate) return;
     showSyncStatus('syncing', '등록 중...');
-    const newPatient = await addPatient({ name, birthDate, gender, clinicId: user.clinicId, customRef });
-    if (newPatient) {
+    const result = await addPatient({ name, birthDate, gender, clinicId: user.clinicId, customRef });
+    if (result?.error) {
+      showSyncStatus('error', '등록 실패');
+      alert(result.error);
+      return;
+    }
+    if (result) {
       showSyncStatus('synced', '등록 완료');
     } else {
       showSyncStatus('error', '저장 실패');
     }
-    setState({ currentPatient: newPatient });
+    setState({ currentPatient: result });
     modal.close();
     await renderDoctorScreen(container);
   });
@@ -517,9 +531,16 @@ function openEditPatientModal(container, patient) {
 
 function openAddMeasurementModal(container, patient) {
   if (!patient) return;
+  const lastRecord = patient.records?.length > 0 ? patient.records[patient.records.length - 1] : null;
+  const lastRecordHtml = lastRecord ? `
+    <div class="px-3 py-2 bg-slate-50 rounded-lg text-xs text-slate-500 mt-2">
+      최근 측정 (${lastRecord.date}): OD ${lastRecord.odAL?.toFixed(2)}mm / OS ${lastRecord.osAL?.toFixed(2)}mm
+    </div>
+  ` : '';
   const modal = openModal('측정 입력', `
     <div class="space-y-4">
       <div class="px-3 py-2 bg-primary-50 rounded-lg text-sm text-primary-700 font-medium">${patient.name} · ${calcAge(patient.birthDate, new Date())}세</div>
+      ${lastRecordHtml}
       <div>
         <label class="block text-sm font-medium text-slate-600 mb-1.5">측정일</label>
         <input type="date" id="measDate" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary-400" value="${todayStr()}">
@@ -549,6 +570,25 @@ function openAddMeasurementModal(container, patient) {
     const odSE = parseFloat(modal.element.querySelector('#measOdSE').value);
     const osSE = parseFloat(modal.element.querySelector('#measOsSE').value);
     if (!date || isNaN(odAL) || isNaN(osAL)) return;
+
+    // Validate ranges
+    const AL_MIN = 18, AL_MAX = 32;
+    const SE_MIN = -30, SE_MAX = 8;
+    const warnings = [];
+    if (odAL < AL_MIN || odAL > AL_MAX) warnings.push(`OD AL (${odAL}mm)이 정상 범위(${AL_MIN}~${AL_MAX}mm)를 벗어났습니다`);
+    if (osAL < AL_MIN || osAL > AL_MAX) warnings.push(`OS AL (${osAL}mm)이 정상 범위(${AL_MIN}~${AL_MAX}mm)를 벗어났습니다`);
+    if (!isNaN(odSE) && (odSE < SE_MIN || odSE > SE_MAX)) warnings.push(`OD SE (${odSE}D)가 정상 범위(${SE_MIN}~${SE_MAX}D)를 벗어났습니다`);
+    if (!isNaN(osSE) && (osSE < SE_MIN || osSE > SE_MAX)) warnings.push(`OS SE (${osSE}D)가 정상 범위(${SE_MIN}~${SE_MAX}D)를 벗어났습니다`);
+
+    if (warnings.length > 0) {
+      if (!confirm('⚠️ 경고:\n' + warnings.join('\n') + '\n\n계속 저장하시겠습니까?')) return;
+    }
+
+    // Check duplicate date
+    const existingDates = patient.records?.map(r => r.date) || [];
+    if (existingDates.includes(date)) {
+      if (!confirm('같은 날짜의 측정 기록이 이미 존재합니다. 추가하시겠습니까?')) return;
+    }
 
     const btn = modal.element.querySelector('#confirmMeasurement');
     btn.disabled = true;

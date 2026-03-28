@@ -2,6 +2,20 @@ import { supabase } from './supabaseClient.js';
 import { calcAge, calcPct } from '../utils.js';
 
 // ============================================
+// Audit logging
+// ============================================
+async function logAudit(action, entityType, entityId, details = {}) {
+  const { data: { user } } = await supabase.auth.getUser();
+  await supabase.from('audit_log').insert({
+    user_id: user?.id,
+    action,
+    entity_type: entityType,
+    entity_id: entityId,
+    details,
+  });
+}
+
+// ============================================
 // Helper: convert DB row to JS object
 // ============================================
 function toPatientJS(p, measurements = [], treatments = []) {
@@ -31,6 +45,7 @@ function toPatientJS(p, measurements = [], treatments = []) {
       type: t.type,
       date: t.date,
       age: parseFloat(t.age),
+      endDate: t.end_date,
     })),
   };
 }
@@ -128,6 +143,16 @@ export async function searchPatientByInfo(name, birthDate, customRef, clinicId) 
 }
 
 export async function addPatient(patient) {
+  // Check duplicate
+  const { data: existing } = await supabase.from('patients')
+    .select('id, name')
+    .eq('clinic_id', patient.clinicId)
+    .eq('name', patient.name)
+    .eq('birth_date', patient.birthDate);
+  if (existing && existing.length > 0) {
+    return { error: '같은 이름과 생년월일의 환자가 이미 등록되어 있습니다.' };
+  }
+
   const regNo = 'P-' + Date.now();
   const { data, error } = await supabase.from('patients').insert({
     name: patient.name,
@@ -138,11 +163,13 @@ export async function addPatient(patient) {
     custom_ref: patient.customRef || null,
   }).select().single();
   if (error) { console.error('addPatient error:', error); return null; }
+  await logAudit('create', 'patient', data.id);
   return toPatientJS(data, [], []);
 }
 
 export async function deletePatient(id) {
   await supabase.from('patients').delete().eq('id', id);
+  await logAudit('delete', 'patient', id);
 }
 
 export async function updatePatient(id, updates) {
@@ -152,6 +179,7 @@ export async function updatePatient(id, updates) {
   if (updates.customRef !== undefined) dbUpdates.custom_ref = updates.customRef;
   const { error } = await supabase.from('patients').update(dbUpdates).eq('id', id);
   if (error) { console.error('updatePatient error:', error); return false; }
+  await logAudit('update', 'patient', id, updates);
   return true;
 }
 
@@ -179,6 +207,7 @@ export async function addMeasurement(patientId, record) {
     os_pct: osPct != null ? String(osPct) : null,
   }).select().single();
   if (error) { console.error('addMeasurement error:', error); return null; }
+  await logAudit('create', 'measurement', data.id, { patient_id: patientId });
   return {
     id: data.id, date: data.date, age: parseFloat(data.age),
     odAL: parseFloat(data.od_al), osAL: parseFloat(data.os_al),
@@ -190,6 +219,7 @@ export async function addMeasurement(patientId, record) {
 
 export async function deleteRecord(patientId, recordId) {
   await supabase.from('measurements').delete().eq('id', recordId);
+  await logAudit('delete', 'measurement', recordId, { patient_id: patientId });
 }
 
 // ============================================
@@ -205,13 +235,25 @@ export async function addTreatment(patientId, treatment) {
     type: treatment.type,
     date: treatment.date,
     age,
+    end_date: treatment.endDate || null,
   }).select().single();
   if (error) { console.error('addTreatment error:', error); return null; }
-  return { id: data.id, type: data.type, date: data.date, age: parseFloat(data.age) };
+  await logAudit('create', 'treatment', data.id, { patient_id: patientId });
+  return { id: data.id, type: data.type, date: data.date, age: parseFloat(data.age), endDate: data.end_date };
 }
 
 export async function removeTreatment(patientId, treatmentId) {
   await supabase.from('treatments').delete().eq('id', treatmentId);
+  await logAudit('delete', 'treatment', treatmentId, { patient_id: patientId });
+}
+
+export async function updateTreatment(treatmentId, updates) {
+  const dbUpdates = {};
+  if (updates.endDate !== undefined) dbUpdates.end_date = updates.endDate;
+  if (updates.type !== undefined) dbUpdates.type = updates.type;
+  const { error } = await supabase.from('treatments').update(dbUpdates).eq('id', treatmentId);
+  if (error) { console.error('updateTreatment error:', error); return false; }
+  return true;
 }
 
 // ============================================
