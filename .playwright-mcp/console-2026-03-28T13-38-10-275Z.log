@@ -1,0 +1,1 @@
+[   41260ms] [ERROR] Failed to load resource: the server responded with a status of 406 () @ https://rwqggjbozibuyajdluqn.supabase.co/rest/v1/patients?select=*&name=eq.%EA%B9%80%EB%AF%BC%EC%A4%80&birth_date=eq.2016-03-15&limit=1:0
