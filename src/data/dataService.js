@@ -50,34 +50,6 @@ function toProfileJS(p) {
 // ============================================
 // Auth
 // ============================================
-export async function login(role) {
-  // Demo login: sign in with pre-defined demo accounts
-  const demoAccounts = {
-    doctor: { email: 'demo-doctor@myopia-tracker.test', password: 'demo-doctor-2026' },
-    customer: { email: 'demo-customer@myopia-tracker.test', password: 'demo-customer-2026' },
-    admin: { email: 'demo-admin@myopia-tracker.test', password: 'demo-admin-2026' },
-  };
-  const creds = demoAccounts[role];
-  if (!creds) return null;
-
-  // Try sign in first, if fails try sign up (first-time demo)
-  let { data, error } = await supabase.auth.signInWithPassword(creds);
-  if (error) {
-    const signUp = await supabase.auth.signUp({
-      ...creds,
-      options: { data: { name: role === 'doctor' ? '홍길동' : role === 'customer' ? '김영희' : '관리자', role } }
-    });
-    if (signUp.error) { console.error('Demo login failed:', signUp.error); return null; }
-    data = signUp.data;
-  }
-
-  if (!data.user) return null;
-
-  // Fetch or set up profile
-  const profile = await getCurrentUser();
-  return profile;
-}
-
 export async function loginWithEmail(email, password) {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw error;
