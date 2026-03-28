@@ -119,9 +119,9 @@ export async function renderLoginScreen(container) {
     const errEl = container.querySelector('#searchError');
     errEl.classList.add('hidden');
 
-    // 등록번호로 검색 OR 이름+생년월일로 검색
-    if (!regNo && (!name || !birth)) {
-      errEl.textContent = '이름+생년월일 또는 등록번호를 입력해주세요';
+    // 이름 필수 + (생년월일 또는 등록번호)
+    if (!name || (!birth && !regNo)) {
+      errEl.textContent = '이름과 생년월일 또는 이름과 등록번호를 입력해주세요';
       errEl.classList.remove('hidden');
       return;
     }

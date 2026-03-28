@@ -112,15 +112,15 @@ export async function searchPatients(query, clinicId) {
 }
 
 export async function searchPatientByInfo(name, birthDate, regNo) {
-  let query;
+  let query = supabase.from('patients').select('*').eq('name', name);
   if (regNo) {
-    // 등록번호로 검색
-    query = supabase.from('patients').select('*').eq('reg_no', regNo).limit(1).single();
+    // 이름 + 등록번호로 검색
+    query = query.eq('reg_no', regNo);
   } else {
     // 이름 + 생년월일로 검색
-    query = supabase.from('patients').select('*').eq('name', name).eq('birth_date', birthDate).limit(1).single();
+    query = query.eq('birth_date', birthDate);
   }
-  const { data, error } = await query;
+  const { data, error } = await query.limit(1).single();
   if (error || !data) return null;
   return fetchPatientFull(data);
 }
