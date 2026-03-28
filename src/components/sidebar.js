@@ -36,6 +36,7 @@ export function renderSidebar(patients, selectedId, options = {}) {
           새 환자
         </button>
         <button id="exportAllBtn" class="w-full py-2 text-sm text-slate-500 hover:text-primary-600 transition-colors">전체 내보내기</button>
+        <p class="text-center text-[10px] text-slate-300 mt-1">? 키: 단축키 도움말</p>
       </div>
     </div>
   `;

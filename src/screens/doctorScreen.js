@@ -117,9 +117,48 @@ export async function renderDoctorScreen(container) {
     initProgressChart(selectedPatient, getState().currentChartType || 'AL');
   }
 
+  // Keyboard shortcuts
+  function handleKeyboard(e) {
+    // Skip if modal is open, input/textarea is focused, or modifier keys
+    if (document.querySelector('.modal-backdrop')) return;
+    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+    const patient = getState().currentPatient;
+    switch (e.key.toLowerCase()) {
+      case 'n': // 새 측정
+        e.preventDefault();
+        if (patient) openAddMeasurementModal(container, patient);
+        break;
+      case 'p': // 새 환자
+        e.preventDefault();
+        openAddPatientModal(container, user);
+        break;
+      case 's': // 환자 검색 포커스
+        e.preventDefault();
+        container.querySelector('#sidebarSearch')?.focus();
+        break;
+      case 'e': // 환자 수정
+        e.preventDefault();
+        if (patient) openEditPatientModal(container, patient);
+        break;
+      case 'r': // 리포트
+        e.preventDefault();
+        if (patient) openPrintReport(patient);
+        break;
+      case '?': // 단축키 도움말
+        e.preventDefault();
+        openShortcutHelpModal();
+        break;
+    }
+  }
+
+  document.addEventListener('keydown', handleKeyboard);
+
   return () => {
     destroyChart('growthChart');
     destroyProgressChart();
+    document.removeEventListener('keydown', handleKeyboard);
   };
 }
 
@@ -856,6 +895,22 @@ function openImportCsvModal(container, patient) {
       await renderDoctorScreen(container);
     }, 1500);
   });
+}
+
+function openShortcutHelpModal() {
+  openModal('키보드 단축키', `
+    <div class="space-y-3">
+      <div class="grid grid-cols-2 gap-2 text-sm">
+        <div class="flex items-center gap-2"><kbd class="px-2 py-1 bg-slate-100 rounded text-xs font-mono font-semibold">N</kbd> <span class="text-slate-600">새 측정 입력</span></div>
+        <div class="flex items-center gap-2"><kbd class="px-2 py-1 bg-slate-100 rounded text-xs font-mono font-semibold">P</kbd> <span class="text-slate-600">새 환자 등록</span></div>
+        <div class="flex items-center gap-2"><kbd class="px-2 py-1 bg-slate-100 rounded text-xs font-mono font-semibold">S</kbd> <span class="text-slate-600">환자 검색</span></div>
+        <div class="flex items-center gap-2"><kbd class="px-2 py-1 bg-slate-100 rounded text-xs font-mono font-semibold">E</kbd> <span class="text-slate-600">환자 정보 수정</span></div>
+        <div class="flex items-center gap-2"><kbd class="px-2 py-1 bg-slate-100 rounded text-xs font-mono font-semibold">R</kbd> <span class="text-slate-600">리포트 출력</span></div>
+        <div class="flex items-center gap-2"><kbd class="px-2 py-1 bg-slate-100 rounded text-xs font-mono font-semibold">?</kbd> <span class="text-slate-600">이 도움말</span></div>
+      </div>
+      <p class="text-xs text-slate-400 mt-2">* 입력 필드에 포커스가 있거나 모달이 열린 상태에서는 비활성화됩니다</p>
+    </div>
+  `);
 }
 
 function openSettingsModal(container) {
