@@ -1,6 +1,5 @@
 import { escapeHtml } from '../utils.js';
 
-const LEVEL_LABEL = ['낮음', '중간', '높음'];
 const LEVEL_POS = ['16.6%', '50%', '83.3%']; // 각 구간 중앙
 
 export function renderRiskGauge(id) {
