@@ -168,3 +168,32 @@ describe('computeChartModel', () => {
     expect(m.previousRisk).toBeNull();
   });
 });
+
+describe('결측 안축장(NaN) 처리', () => {
+  it('calcPercentile: NaN 안축장 → null', () => {
+    expect(calcPercentile('female', 13, NaN)).toBeNull();
+  });
+
+  it('progressionRate: 모두 NaN인 레코드 → null', () => {
+    const records = [
+      { date: '2024-01-01', odAL: NaN },
+      { date: '2025-01-01', odAL: NaN },
+    ];
+    expect(progressionRate(records, 'odAL')).toBeNull();
+  });
+
+  it('computeChartModel: odAL이 모두 NaN이면 od=null, os는 비-null, risk는 유효 레이블', () => {
+    const patient = {
+      gender: 'female',
+      records: [
+        { date: '2024-07-01', age: 12.5, odAL: NaN, osAL: 24.2 },
+        { date: '2025-12-01', age: 13.4, odAL: NaN, osAL: 24.5 },
+      ],
+      treatments: [],
+    };
+    const m = computeChartModel(patient);
+    expect(m.od).toBeNull();
+    expect(m.os).not.toBeNull();
+    expect(['낮음', '중간', '높음']).toContain(m.risk);
+  });
+});

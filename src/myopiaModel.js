@@ -35,6 +35,7 @@ export function refValue(gender, age, pct) {
 
 // calcPercentile(gender, age, al): refValue의 역함수. 측정 안축장이 몇 백분위인지 산출.
 export function calcPercentile(gender, age, al) {
+  if (!Number.isFinite(al)) return null;
   const data = PERCENTILE_DATA[gender];
   if (!data || age < 4 || age > 18) return null;
   const refs = {};
@@ -112,7 +113,7 @@ export function predictAdultRefraction(predictedAL) {
 
 // progressionRate(records, alKey): 최근 두 측정으로 안축장 연간 진행속도(mm/년)
 export function progressionRate(records, alKey = 'odAL') {
-  const valid = (records || []).filter((r) => r[alKey] != null);
+  const valid = (records || []).filter((r) => Number.isFinite(r[alKey]));
   if (valid.length < 2) return null;
   const last = valid[valid.length - 1];
   const prev = valid[valid.length - 2];
@@ -137,7 +138,7 @@ export function assessRisk(predictedSE, progRate) {
 const RISK_LABELS = ['낮음', '중간', '높음'];
 
 function _eyeModel(gender, records, alKey) {
-  const eyeRecords = records.filter((r) => r[alKey] != null);
+  const eyeRecords = records.filter((r) => Number.isFinite(r[alKey]));
   if (eyeRecords.length === 0) return null;
   const lr = eyeRecords[eyeRecords.length - 1];
   const projection = projectToAge(gender, lr.age, lr[alKey], 18);
