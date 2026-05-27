@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { interpolateValue, refValue, calcPercentile, calcPct, generatePercentileCurves, generateCurveData, projectToAge } from './myopiaModel.js';
+import { interpolateValue, refValue, calcPercentile, calcPct, generatePercentileCurves, generateCurveData, projectToAge, alToRefraction, predictAdultRefraction } from './myopiaModel.js';
 import { PERCENTILE_GRID } from './constants.js';
 
 const maleData = [
@@ -89,5 +89,26 @@ describe('projectToAge', () => {
   });
   it('알 수 없는 성별은 null', () => {
     expect(projectToAge('nope', 10, 23, 18)).toBeNull();
+  });
+});
+
+describe('alToRefraction', () => {
+  it('정상안 기준(23.5mm)은 0D', () => {
+    expect(alToRefraction(23.5)).toBeCloseTo(0, 5);
+  });
+  it('이미지 재현: 25.21mm → ≈ -1.54D', () => {
+    expect(alToRefraction(25.21)).toBeCloseTo(-1.54, 2);
+  });
+  it('안축장이 길수록 더 근시(단조 감소)', () => {
+    expect(alToRefraction(26)).toBeLessThan(alToRefraction(24));
+  });
+});
+
+describe('predictAdultRefraction', () => {
+  it('이미지 재현: 25.21mm → 평균≈-1.54D, 95% 밴드≈(-3.5, 0.5)', () => {
+    const r = predictAdultRefraction(25.21);
+    expect(r.mean).toBeCloseTo(-1.54, 2);
+    expect(r.lo).toBeCloseTo(-3.48, 1);
+    expect(r.hi).toBeCloseTo(0.40, 1);
   });
 });

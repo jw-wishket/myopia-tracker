@@ -1,4 +1,4 @@
-import { PERCENTILE_DATA, PERCENTILE_GRID } from './constants.js';
+import { PERCENTILE_DATA, PERCENTILE_GRID, REFRACTION_MODEL, PREDICTION_SD } from './constants.js';
 
 const PCT_KEYS = ['P3', 'P5', 'P10', 'P25', 'P50', 'P75', 'P90', 'P95'];
 const PCT_NUMS = [3, 5, 10, 25, 50, 75, 90, 95];
@@ -95,4 +95,17 @@ export function projectToAge(gender, currentAge, al, toAge = 18) {
     points.push({ x: toAge, y: refValue(gender, toAge, pNum) });
   }
   return { percentile: pNum, points, predictedAL: refValue(gender, toAge, pNum) };
+}
+
+// alToRefraction(al): R = alpha + beta * AL (선형 변환)
+export function alToRefraction(al) {
+  const { alpha, beta } = REFRACTION_MODEL;
+  return alpha + beta * al;
+}
+
+// predictAdultRefraction(predictedAL): 예측 안축장 → 굴절 분포(평균/표준편차/95%밴드)
+export function predictAdultRefraction(predictedAL) {
+  const mean = alToRefraction(predictedAL);
+  const sd = Math.abs(REFRACTION_MODEL.beta) * PREDICTION_SD;
+  return { mean, sd, lo: mean - 1.96 * sd, hi: mean + 1.96 * sd };
 }
