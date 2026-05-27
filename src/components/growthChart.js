@@ -138,7 +138,7 @@ export function initGrowthChart(canvasId, patient) {
         annotation: { annotations },
       },
       scales: {
-        x: { type: 'linear', min: 4, max: 18, title: { display: true, text: '나이 (세)' }, ticks: { stepSize: 2 }, grid: { color: '#f1f5f9' } },
+        x: { type: 'linear', min: 4, max: 18, title: { display: true, text: '나이 (세)' }, ticks: { stepSize: 2, callback: (v) => (v === 18 ? '성인' : v) }, grid: { color: '#f1f5f9' } },
         y: { min: 20, max: 28, title: { display: true, text: '안축장 (mm)' }, ticks: { stepSize: 1 }, grid: { color: '#f1f5f9' } },
       },
     },
