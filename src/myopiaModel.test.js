@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { interpolateValue, refValue, calcPercentile, calcPct, generatePercentileCurves, generateCurveData, projectToAge, alToRefraction, predictAdultRefraction, progressionRate, assessRisk } from './myopiaModel.js';
+import { interpolateValue, refValue, calcPercentile, calcPct, generatePercentileCurves, generateCurveData, projectToAge, alToRefraction, predictAdultRefraction, progressionRate, assessRisk, computeChartModel } from './myopiaModel.js';
 import { PERCENTILE_GRID } from './constants.js';
 
 const maleData = [
@@ -141,5 +141,30 @@ describe('assessRisk', () => {
   });
   it('중등도(-4D) + 안정진행(0.05) → 중간', () => {
     expect(assessRisk(-4, 0.05)).toBe('중간');
+  });
+});
+
+describe('computeChartModel', () => {
+  const patient = {
+    gender: 'female',
+    records: [
+      { date: '2024-07-01', age: 12.5, odAL: 24.20, osAL: 24.22 },
+      { date: '2025-12-01', age: 13.4, odAL: 24.55, osAL: 24.58 },
+    ],
+    treatments: [],
+  };
+  it('성별 결측 시 error 반환', () => {
+    expect(computeChartModel({ ...patient, gender: null }).error).toBe('gender');
+  });
+  it('19개 곡선과 좌/우 예측·위험도를 포함', () => {
+    const m = computeChartModel(patient);
+    expect(Object.keys(m.curves).length).toBe(19);
+    expect(m.od.projection.predictedAL).toBeGreaterThan(24.5);
+    expect(['낮음', '중간', '높음']).toContain(m.risk);
+    expect(m.od.predSE.mean).toBeLessThan(0);
+  });
+  it('측정 2개면 previousRisk는 null(이전 진행속도 산출 불가)', () => {
+    const m = computeChartModel(patient);
+    expect(m.previousRisk).toBeNull();
   });
 });

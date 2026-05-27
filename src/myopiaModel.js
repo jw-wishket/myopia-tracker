@@ -133,3 +133,56 @@ export function assessRisk(predictedSE, progRate) {
   }
   return ['낮음', '중간', '높음'][combined];
 }
+
+const RISK_LABELS = ['낮음', '중간', '높음'];
+
+function _eyeModel(gender, records, alKey) {
+  const eyeRecords = records.filter((r) => r[alKey] != null);
+  if (eyeRecords.length === 0) return null;
+  const lr = eyeRecords[eyeRecords.length - 1];
+  const projection = projectToAge(gender, lr.age, lr[alKey], 18);
+  if (!projection) return null;
+  return {
+    points: eyeRecords.map((r) => ({ x: r.age, y: r[alKey] })),
+    projection,
+    predSE: predictAdultRefraction(projection.predictedAL),
+  };
+}
+
+function _riskFor(gender, records) {
+  const od = _eyeModel(gender, records, 'odAL');
+  const os = _eyeModel(gender, records, 'osAL');
+  const ses = [od?.predSE.mean, os?.predSE.mean].filter((v) => v != null);
+  if (ses.length === 0) return null;
+  const worstSE = Math.min(...ses); // 가장 근시 쪽
+  const rates = [progressionRate(records, 'odAL'), progressionRate(records, 'osAL')].filter((v) => v != null);
+  const maxRate = rates.length ? Math.max(...rates) : null;
+  return { label: assessRisk(worstSE, maxRate), rate: maxRate };
+}
+
+// computeChartModel(patient): 차트·패널·게이지가 공유하는 단일 진실원
+export function computeChartModel(patient) {
+  const gender = patient?.gender;
+  if (!gender || !PERCENTILE_DATA[gender]) return { error: 'gender' };
+  const records = (patient.records || []).filter((r) => r.age >= 4 && r.age <= 18);
+
+  const curves = generatePercentileCurves(gender);
+  const od = _eyeModel(gender, records, 'odAL');
+  const os = _eyeModel(gender, records, 'osAL');
+
+  const current = _riskFor(gender, records);
+  const prev = records.length >= 3 ? _riskFor(gender, records.slice(0, -1)) : null;
+
+  return {
+    gender,
+    curves,
+    od,
+    os,
+    treatments: patient.treatments || [],
+    risk: current ? current.label : null,
+    riskLevel: current ? RISK_LABELS.indexOf(current.label) : null,
+    progressionRate: current ? current.rate : null,
+    previousRisk: prev ? prev.label : null,
+    previousRiskLevel: prev ? RISK_LABELS.indexOf(prev.label) : null,
+  };
+}
