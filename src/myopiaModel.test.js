@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { interpolateValue, refValue } from './myopiaModel.js';
+import { interpolateValue, refValue, calcPercentile, calcPct } from './myopiaModel.js';
 
 const maleData = [
   { Age: 4, P50: 22.39 }, { Age: 5, P50: 22.69 },
@@ -29,5 +29,23 @@ describe('refValue', () => {
   });
   it('알 수 없는 성별은 null', () => {
     expect(refValue('unknown', 10, 50)).toBeNull();
+  });
+});
+
+describe('calcPercentile', () => {
+  it('refValue 역함수 왕복: 여아 18세 25.218mm → 55백분위', () => {
+    expect(calcPercentile('female', 18, 25.218)).toBe(55);
+  });
+  it('P3 이하는 "<3"', () => {
+    expect(calcPercentile('male', 10, 20.0)).toBe('<3');
+  });
+  it('P95 이상은 ">95"', () => {
+    expect(calcPercentile('male', 10, 30.0)).toBe('>95');
+  });
+  it('나이 범위 밖은 null', () => {
+    expect(calcPercentile('male', 3, 22)).toBeNull();
+  });
+  it('calcPct는 calcPercentile의 별칭', () => {
+    expect(calcPct).toBe(calcPercentile);
   });
 });

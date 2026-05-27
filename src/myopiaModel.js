@@ -32,3 +32,23 @@ export function refValue(gender, age, pct) {
   }
   return vals[4]; // P50 fallback
 }
+
+// calcPercentile(gender, age, al): refValue의 역함수. 측정 안축장이 몇 백분위인지 산출.
+export function calcPercentile(gender, age, al) {
+  const data = PERCENTILE_DATA[gender];
+  if (!data || age < 4 || age > 18) return null;
+  const refs = {};
+  PCT_KEYS.forEach((k) => { refs[k] = interpolateValue(data, age, k); });
+  if (al <= refs.P3) return '<3';
+  if (al >= refs.P95) return '>95';
+  for (let i = 0; i < PCT_KEYS.length - 1; i++) {
+    const lo = refs[PCT_KEYS[i]], hi = refs[PCT_KEYS[i + 1]];
+    if (al >= lo && al <= hi) {
+      return Math.round(PCT_NUMS[i] + ((al - lo) / (hi - lo)) * (PCT_NUMS[i + 1] - PCT_NUMS[i]));
+    }
+  }
+  return 50;
+}
+
+// 하위호환 별칭 (services/helpers.js, measurements.js, patients.js가 calcPct를 import)
+export const calcPct = calcPercentile;
