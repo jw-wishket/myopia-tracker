@@ -63,7 +63,7 @@ registerRoute('patient-result', async (container) => {
   const nav = renderNavbar({ title: '근시관리 트래커', subtitle: '환자 기록 조회', showBack: true, backTarget: 'login' });
   container.innerHTML = `
     ${nav.html}
-    <main class="max-w-4xl mx-auto p-4 sm:p-6 space-y-5">
+    <main class="max-w-6xl mx-auto p-4 sm:p-6 space-y-5">
       ${renderPatientInfoBar(patient)}
       <div class="bg-white rounded-2xl border border-slate-200 p-5">
         <h3 class="text-sm font-semibold text-slate-800 mb-4">현재 상태</h3>

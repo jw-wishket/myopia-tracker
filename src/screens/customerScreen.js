@@ -54,7 +54,7 @@ export async function renderCustomerScreen(container) {
 
   container.innerHTML = `
     ${nav.html}
-    <main class="max-w-4xl mx-auto p-4 sm:p-6 space-y-5 has-bottom-nav">
+    <main class="max-w-6xl mx-auto p-4 sm:p-6 space-y-5 has-bottom-nav">
       <div>
         <div class="flex items-center justify-between mb-3">
           <h2 class="text-sm font-semibold text-slate-800">내 자녀</h2>

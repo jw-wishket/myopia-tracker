@@ -253,21 +253,19 @@ function renderPatientContent(patient, patients) {
         </div>
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <div class="bg-white rounded-2xl border border-slate-200 p-5">
-          <div class="flex items-center justify-between mb-4">
-            <h3 class="text-sm font-semibold text-slate-800">성장 차트</h3>
-            <button id="saveGrowthChartBtn" class="px-3 py-1.5 text-xs font-medium text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50 hover:text-primary-600 transition-colors flex items-center gap-1">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-              이미지 저장
-            </button>
-          </div>
-          ${renderGrowthChart('growthChart', patient)}
+      <div class="bg-white rounded-2xl border border-slate-200 p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-sm font-semibold text-slate-800">성장 차트</h3>
+          <button id="saveGrowthChartBtn" class="px-3 py-1.5 text-xs font-medium text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50 hover:text-primary-600 transition-colors flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            이미지 저장
+          </button>
         </div>
-        <div class="bg-white rounded-2xl border border-slate-200 p-5">
-          <h3 class="text-sm font-semibold text-slate-800 mb-4">진행 추이</h3>
-          ${renderProgressChart()}
-        </div>
+        ${renderGrowthChart('growthChart', patient)}
+      </div>
+      <div class="bg-white rounded-2xl border border-slate-200 p-5">
+        <h3 class="text-sm font-semibold text-slate-800 mb-4">진행 추이</h3>
+        ${renderProgressChart()}
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
