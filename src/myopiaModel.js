@@ -1,4 +1,4 @@
-import { PERCENTILE_DATA, PERCENTILE_GRID, REFRACTION_MODEL, PREDICTION_SD } from './constants.js';
+import { PERCENTILE_DATA, PERCENTILE_GRID, REFRACTION_MODEL, PREDICTION_SD, RISK_THRESHOLDS } from './constants.js';
 
 const PCT_KEYS = ['P3', 'P5', 'P10', 'P25', 'P50', 'P75', 'P90', 'P95'];
 const PCT_NUMS = [3, 5, 10, 25, 50, 75, 90, 95];
@@ -108,4 +108,28 @@ export function predictAdultRefraction(predictedAL) {
   const mean = alToRefraction(predictedAL);
   const sd = Math.abs(REFRACTION_MODEL.beta) * PREDICTION_SD;
   return { mean, sd, lo: mean - 1.96 * sd, hi: mean + 1.96 * sd };
+}
+
+// progressionRate(records, alKey): 최근 두 측정으로 안축장 연간 진행속도(mm/년)
+export function progressionRate(records, alKey = 'odAL') {
+  const valid = (records || []).filter((r) => r[alKey] != null);
+  if (valid.length < 2) return null;
+  const last = valid[valid.length - 1];
+  const prev = valid[valid.length - 2];
+  const months = (new Date(last.date) - new Date(prev.date)) / (1000 * 60 * 60 * 24 * 30.44);
+  if (months <= 0) return null;
+  return ((last[alKey] - prev[alKey]) / months) * 12;
+}
+
+// assessRisk(predictedSE, progRate): 복합 위험도. 진행정보 없으면 굴절만 사용.
+export function assessRisk(predictedSE, progRate) {
+  const { refraction, progression } = RISK_THRESHOLDS;
+  const refLevel = predictedSE > refraction.low ? 0 : predictedSE > refraction.high ? 1 : 2;
+  let combined = refLevel;
+  if (progRate != null) {
+    const progLevel = progRate <= progression.stable ? 0 : progRate <= progression.rapid ? 1 : 2;
+    combined = Math.max(refLevel, progLevel);
+    if (refLevel >= 1 && progLevel >= 1) combined = Math.min(2, combined + 1);
+  }
+  return ['낮음', '중간', '높음'][combined];
 }

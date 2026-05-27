@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { interpolateValue, refValue, calcPercentile, calcPct, generatePercentileCurves, generateCurveData, projectToAge, alToRefraction, predictAdultRefraction } from './myopiaModel.js';
+import { interpolateValue, refValue, calcPercentile, calcPct, generatePercentileCurves, generateCurveData, projectToAge, alToRefraction, predictAdultRefraction, progressionRate, assessRisk } from './myopiaModel.js';
 import { PERCENTILE_GRID } from './constants.js';
 
 const maleData = [
@@ -110,5 +110,36 @@ describe('predictAdultRefraction', () => {
     expect(r.mean).toBeCloseTo(-1.54, 2);
     expect(r.lo).toBeCloseTo(-3.48, 1);
     expect(r.hi).toBeCloseTo(0.40, 1);
+  });
+});
+
+describe('progressionRate', () => {
+  it('1년 간격 0.5mm 증가 → 0.5mm/년', () => {
+    const records = [
+      { date: '2024-01-01', odAL: 24.0 },
+      { date: '2025-01-01', odAL: 24.5 },
+    ];
+    expect(progressionRate(records, 'odAL')).toBeCloseTo(0.5, 1);
+  });
+  it('측정 1개면 null', () => {
+    expect(progressionRate([{ date: '2025-01-01', odAL: 24 }], 'odAL')).toBeNull();
+  });
+});
+
+describe('assessRisk', () => {
+  it('이미지 케이스: 경도근시(-1.5D) + 빠른 진행(0.5) → 높음', () => {
+    expect(assessRisk(-1.5, 0.5)).toBe('높음');
+  });
+  it('경도근시 + 안정 진행 → 낮음', () => {
+    expect(assessRisk(-1.0, 0.05)).toBe('낮음');
+  });
+  it('고도근시(-7D) + 진행정보 없음 → 높음', () => {
+    expect(assessRisk(-7, null)).toBe('높음');
+  });
+  it('중등도(-4D) + 보통진행(0.2) → 둘 다 우려로 1단계 상향 → 높음', () => {
+    expect(assessRisk(-4, 0.2)).toBe('높음');
+  });
+  it('중등도(-4D) + 안정진행(0.05) → 중간', () => {
+    expect(assessRisk(-4, 0.05)).toBe('중간');
   });
 });
