@@ -1,4 +1,4 @@
-import { PERCENTILE_DATA } from './constants.js';
+import { PERCENTILE_DATA, PERCENTILE_GRID } from './constants.js';
 
 const PCT_KEYS = ['P3', 'P5', 'P10', 'P25', 'P50', 'P75', 'P90', 'P95'];
 const PCT_NUMS = [3, 5, 10, 25, 50, 75, 90, 95];
@@ -52,3 +52,31 @@ export function calcPercentile(gender, age, al) {
 
 // 하위호환 별칭 (services/helpers.js, measurements.js, patients.js가 calcPct를 import)
 export const calcPct = calcPercentile;
+
+const _curveCache = {};
+
+// generatePercentileCurves(gender): PERCENTILE_GRID의 각 백분위에 대해 4~18세(0.5 간격) 곡선
+export function generatePercentileCurves(gender) {
+  if (!PERCENTILE_DATA[gender]) return {};
+  if (_curveCache[gender]) return _curveCache[gender];
+  const curves = {};
+  for (const p of PERCENTILE_GRID) {
+    const points = [];
+    for (let age = 4; age <= 18 + 1e-9; age += 0.5) {
+      points.push({ x: Math.round(age * 10) / 10, y: refValue(gender, age, p) });
+    }
+    curves[p] = points;
+  }
+  _curveCache[gender] = curves;
+  return curves;
+}
+
+// generateCurveData(gender, pKey): 'P50' 같은 키로 단일 곡선 반환 (하위호환)
+export function generateCurveData(gender, pKey) {
+  const num = Number(String(pKey).replace('P', ''));
+  const points = [];
+  for (let age = 4; age <= 18 + 1e-9; age += 0.5) {
+    points.push({ x: Math.round(age * 10) / 10, y: refValue(gender, age, num) });
+  }
+  return points;
+}

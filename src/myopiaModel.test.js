@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { interpolateValue, refValue, calcPercentile, calcPct } from './myopiaModel.js';
+import { interpolateValue, refValue, calcPercentile, calcPct, generatePercentileCurves, generateCurveData } from './myopiaModel.js';
+import { PERCENTILE_GRID } from './constants.js';
 
 const maleData = [
   { Age: 4, P50: 22.39 }, { Age: 5, P50: 22.69 },
@@ -47,5 +48,29 @@ describe('calcPercentile', () => {
   });
   it('calcPct는 calcPercentile의 별칭', () => {
     expect(calcPct).toBe(calcPercentile);
+  });
+});
+
+describe('generatePercentileCurves', () => {
+  it('PERCENTILE_GRID의 모든 백분위(19개) 키를 가진다', () => {
+    const curves = generatePercentileCurves('male');
+    expect(Object.keys(curves).map(Number).sort((a, b) => a - b)).toEqual(PERCENTILE_GRID);
+  });
+  it('각 곡선은 4세부터 18세까지 0.5세 간격(29점)', () => {
+    const curves = generatePercentileCurves('male');
+    expect(curves[50].length).toBe(29);
+    expect(curves[50][0]).toEqual({ x: 4, y: expect.any(Number) });
+    expect(curves[50][28].x).toBe(18);
+  });
+  it('알 수 없는 성별은 빈 객체', () => {
+    expect(generatePercentileCurves('nope')).toEqual({});
+  });
+});
+
+describe('generateCurveData (하위호환)', () => {
+  it('pKey 문자열로 곡선 배열 반환', () => {
+    const pts = generateCurveData('male', 'P50');
+    expect(pts.length).toBe(29);
+    expect(pts[0].y).toBeCloseTo(22.39, 2);
   });
 });
