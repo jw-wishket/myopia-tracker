@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { interpolateValue, refValue, calcPercentile, calcPct, generatePercentileCurves, generateCurveData } from './myopiaModel.js';
+import { interpolateValue, refValue, calcPercentile, calcPct, generatePercentileCurves, generateCurveData, projectToAge } from './myopiaModel.js';
 import { PERCENTILE_GRID } from './constants.js';
 
 const maleData = [
@@ -72,5 +72,22 @@ describe('generateCurveData (하위호환)', () => {
     const pts = generateCurveData('male', 'P50');
     expect(pts.length).toBe(29);
     expect(pts[0].y).toBeCloseTo(22.39, 2);
+  });
+});
+
+describe('projectToAge', () => {
+  it('여아 13.4세 안축장이 55백분위면 18세 예측 ≈ 25.22mm', () => {
+    // 여아 13.4세 55백분위 안축장을 입력으로 사용
+    const al = refValue('female', 13.4, 55);
+    const proj = projectToAge('female', 13.4, al, 18);
+    expect(proj.percentile).toBe(55);
+    expect(proj.predictedAL).toBeCloseTo(25.22, 1);
+  });
+  it('예측 곡선의 마지막 점은 정확히 18세', () => {
+    const proj = projectToAge('female', 13.4, 24.5, 18);
+    expect(proj.points[proj.points.length - 1].x).toBe(18);
+  });
+  it('알 수 없는 성별은 null', () => {
+    expect(projectToAge('nope', 10, 23, 18)).toBeNull();
   });
 });

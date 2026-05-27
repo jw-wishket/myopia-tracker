@@ -80,3 +80,19 @@ export function generateCurveData(gender, pKey) {
   }
   return points;
 }
+
+// projectToAge: 현재 백분위를 toAge까지 추종하는 예측 곡선과 예측 안축장
+export function projectToAge(gender, currentAge, al, toAge = 18) {
+  const p = calcPercentile(gender, currentAge, al);
+  if (p === null) return null;
+  const pNum = p === '<3' ? 3 : p === '>95' ? 95 : p;
+  const points = [];
+  for (let a = currentAge; a <= toAge + 1e-9; a += 0.5) {
+    const ax = Math.round(a * 10) / 10;
+    points.push({ x: ax, y: refValue(gender, ax, pNum) });
+  }
+  if (points.length === 0 || points[points.length - 1].x < toAge) {
+    points.push({ x: toAge, y: refValue(gender, toAge, pNum) });
+  }
+  return { percentile: pNum, points, predictedAL: refValue(gender, toAge, pNum) };
+}
