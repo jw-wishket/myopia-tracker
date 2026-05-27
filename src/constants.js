@@ -59,3 +59,20 @@ export const PERCENTILE_CURVE_STYLES = {
   P10: { color: '#9ca3af', width: 1.5, dash: [4,4] },
   P5:  { color: '#d1d5db', width: 2, dash: [6,3] },
 };
+
+// 백분위 곡선 그리드 (5% 간격, 5~95% → 19개)
+export const PERCENTILE_GRID = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95];
+
+// 안축장(AL) → 등가구면 굴절(R) 선형 변환:  R = alpha + beta * AL
+// 이미지 보정값(횡단면 기울기). 문헌·클리닉 데이터로 재보정 대상. 설계문서 §3.5/§8 참고.
+//   R(25.21mm) = 21.15 - 0.9*25.21 ≈ -1.54D (이미지 우안 밴드 중심)
+export const REFRACTION_MODEL = { alpha: 21.15, beta: -0.9, emmetropiaAL: 23.5 };
+
+// 예측 안축장의 표준편차(mm). beta와 결합 보정: |beta|*PREDICTION_SD ≈ 1.02 → 95% 굴절밴드 ≈ ±2.0D
+export const PREDICTION_SD = 1.1;
+
+// 위험도 임계값 (설계문서 §3.6). 모두 임상 보정 대상.
+export const RISK_THRESHOLDS = {
+  refraction: { low: -3.0, high: -6.0 },   // 예측 성인 굴절(D)
+  progression: { stable: 0.1, rapid: 0.3 }, // 안축장 진행속도(mm/년)
+};
