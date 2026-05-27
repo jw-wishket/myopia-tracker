@@ -5,3 +5,6 @@ dist
 .env.local
 
 .vercel
+
+# Windows bash crash dumps
+*.stackdump
