@@ -104,11 +104,12 @@ export function alToRefraction(al) {
   return alpha + beta * al;
 }
 
-// predictAdultRefraction(predictedAL): 예측 안축장 → 굴절 분포(평균/표준편차/95%밴드)
+// predictAdultRefraction(predictedAL): 예측 안축장 → 굴절 분포(평균/표준편차/2σ 밴드)
+// 밴드는 평균 ± 2·σ (≈95.45% 신뢰구간) — BHVI 레퍼런스 이미지의 (-3.5, +0.5) 밴드를 정확 재현.
 export function predictAdultRefraction(predictedAL) {
   const mean = alToRefraction(predictedAL);
   const sd = Math.abs(REFRACTION_MODEL.beta) * PREDICTION_SD;
-  return { mean, sd, lo: mean - 1.96 * sd, hi: mean + 1.96 * sd };
+  return { mean, sd, lo: mean - 2 * sd, hi: mean + 2 * sd };
 }
 
 // progressionRate(records, alKey): 최근 두 측정으로 안축장 연간 진행속도(mm/년)

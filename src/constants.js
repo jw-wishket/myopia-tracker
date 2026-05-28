@@ -64,12 +64,13 @@ export const PERCENTILE_CURVE_STYLES = {
 export const PERCENTILE_GRID = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95];
 
 // 안축장(AL) → 등가구면 굴절(R) 선형 변환:  R = alpha + beta * AL
-// 이미지 보정값(횡단면 기울기). 문헌·클리닉 데이터로 재보정 대상. 설계문서 §3.5/§8 참고.
-//   R(25.21mm) = 21.15 - 0.9*25.21 ≈ -1.54D (이미지 우안 밴드 중심)
-export const REFRACTION_MODEL = { alpha: 21.15, beta: -0.9, emmetropiaAL: 23.5 };
+// 이미지 정확 매칭 보정값. 문헌·클리닉 데이터로 재보정 대상. 설계문서 §3.5/§8 참고.
+//   R(25.21mm) = 21.189 - 0.9*25.21 = -1.50D (이미지 우안 밴드 중심과 정확 일치)
+//   R = 0 인 emmetropic AL ≈ 23.543mm
+export const REFRACTION_MODEL = { alpha: 21.189, beta: -0.9, emmetropiaAL: 23.543 };
 
-// 예측 안축장의 표준편차(mm). beta와 결합 보정: |beta|*PREDICTION_SD ≈ 1.02 → 95% 굴절밴드 ≈ ±2.0D
-export const PREDICTION_SD = 1.1;
+// 예측 안축장의 표준편차(mm). β와 결합: |β|·σ_AL = 1.0 → 2σ 굴절밴드 ±2.0D (이미지 정확 매칭)
+export const PREDICTION_SD = 1.111;
 
 // 위험도 임계값 (설계문서 §3.6). 모두 임상 보정 대상.
 export const RISK_THRESHOLDS = {

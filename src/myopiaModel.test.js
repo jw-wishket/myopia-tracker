@@ -93,11 +93,11 @@ describe('projectToAge', () => {
 });
 
 describe('alToRefraction', () => {
-  it('정상안 기준(23.5mm)은 0D', () => {
-    expect(alToRefraction(23.5)).toBeCloseTo(0, 5);
+  it('정상안 기준(emmetropic AL ≈ 23.543mm)은 0D', () => {
+    expect(alToRefraction(23.543)).toBeCloseTo(0, 3);
   });
-  it('이미지 재현: 25.21mm → ≈ -1.54D', () => {
-    expect(alToRefraction(25.21)).toBeCloseTo(-1.54, 2);
+  it('이미지 정확 매칭: 25.21mm → -1.50D (이미지 우안 밴드 중심)', () => {
+    expect(alToRefraction(25.21)).toBeCloseTo(-1.50, 2);
   });
   it('안축장이 길수록 더 근시(단조 감소)', () => {
     expect(alToRefraction(26)).toBeLessThan(alToRefraction(24));
@@ -105,11 +105,11 @@ describe('alToRefraction', () => {
 });
 
 describe('predictAdultRefraction', () => {
-  it('이미지 재현: 25.21mm → 평균≈-1.54D, 95% 밴드≈(-3.5, 0.5)', () => {
+  it('이미지 정확 매칭: 25.21mm → 평균 -1.50D, 2σ 밴드 (-3.50, +0.50)', () => {
     const r = predictAdultRefraction(25.21);
-    expect(r.mean).toBeCloseTo(-1.54, 2);
-    expect(r.lo).toBeCloseTo(-3.48, 1);
-    expect(r.hi).toBeCloseTo(0.40, 1);
+    expect(r.mean).toBeCloseTo(-1.50, 2);
+    expect(r.lo).toBeCloseTo(-3.50, 2);
+    expect(r.hi).toBeCloseTo(0.50, 2);
   });
 });
 
