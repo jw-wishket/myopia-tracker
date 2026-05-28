@@ -31,7 +31,10 @@
 | 성별 | 남(boys) · 여(girls) 별도 산출 |
 | 산출 백분위 | P3, P5, P10, P25, P50, P75, P90, P95 (8개) |
 
-**링크:** <https://pmc.ncbi.nlm.nih.gov/articles/PMC9887397/>
+**링크:**
+- 논문 메인: <https://pmc.ncbi.nlm.nih.gov/articles/PMC9887397/>
+- **Table 4 (백분위 표 — 본 앱이 사용하는 데이터):** <https://pmc.ncbi.nlm.nih.gov/articles/PMC9887397/table/T4/>
+- Table 3 (평균±SD — 별도 통계, 본 앱 사용 안 함): <https://pmc.ncbi.nlm.nih.gov/articles/PMC9887397/table/T3/>
 
 ### 데이터 일치 검증 (`PERCENTILE_DATA` ↔ He et al.)
 
@@ -48,7 +51,7 @@
 | 남 18세 범위 (P3–P95) | 22.92 – 27.74 | 22.92 – 27.74 ✅ |
 | 여 18세 범위 (P3–P95) | 22.61 – 27.08 | 22.61 – 27.08 ✅ |
 
-→ **검증한 모든 포인트가 byte 단위로 동일.** 우리 데이터는 He et al. 2021의 발표값 그대로입니다.
+→ 위 표는 일부 spot-check 결과이며, **전체 240개 셀**(남 15세 × 8백분위 + 여 15세 × 8백분위)을 프로그램으로 일괄 비교한 결과 **불일치 0건**으로 확인됐습니다. 우리 `PERCENTILE_DATA`는 He et al. 2021 Table 4 발표값과 **0.001mm 이내로 byte 단위 정확 일치**합니다.
 
 ---
 
@@ -148,3 +151,4 @@ adolescents aged 4-18 years. 2021. PMC9887397.
 **문서 작성일:** 2026-05-28
 **근거 데이터 commit:** 08101c8 (`feat: add data layer, router, and navigation components`, 2026-03-26 — PERCENTILE_DATA 최초 도입)
 **출처 확정일:** 2026-05-28 (PubMed Central 역추적을 통해 He et al. 2021로 확인)
+**Byte 단위 일치 검증:** 2026-05-29 (Table 4 전체 240셀 프로그램 비교, 불일치 0건)
