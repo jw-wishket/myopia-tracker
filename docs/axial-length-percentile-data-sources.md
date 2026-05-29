@@ -144,7 +144,7 @@ adolescents aged 4-18 years. 2021. PMC9887397.
 | 단위 테스트 | `src/myopiaModel.test.js` |
 | 설계 스펙 | `docs/superpowers/specs/2026-05-27-bhvi-style-al-growth-chart-design.md` |
 | 구현 계획 | `docs/superpowers/plans/2026-05-28-bhvi-style-growth-chart.md` |
-| 의료진용 설명서 | (대화 산출물 — 별도 저장 시 갱신) |
+| 의료진용 설명서 | [`growth-chart-clinician-guide.md`](./growth-chart-clinician-guide.md) |
 
 ---
 
