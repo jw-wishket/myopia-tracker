@@ -126,7 +126,7 @@ export function initGrowthChart(canvasId, patient, projectionMode = 'trend') {
     };
   }
 
-  chartInstances[canvasId] = new Chart(ctx, {
+  const chart = new Chart(ctx, {
     type: 'scatter',
     data: { datasets: [...curveDatasets, ...eyeDatasets] },
     options: {
@@ -139,12 +139,25 @@ export function initGrowthChart(canvasId, patient, projectionMode = 'trend') {
       },
       scales: {
         x: { type: 'linear', min: 4, max: 18, title: { display: true, text: '나이 (세)' }, ticks: { stepSize: 2, callback: (v) => (v === 18 ? '성인' : v) }, grid: { color: '#f1f5f9' } },
-        y: { min: 20, max: 28, title: { display: true, text: '안축장 (mm)' }, ticks: { stepSize: 1 }, grid: { color: '#f1f5f9' } },
+        y: { min: 20, max: 30, title: { display: true, text: '안축장 (mm)' }, ticks: { stepSize: 1 }, grid: { color: '#f1f5f9' } },
       },
     },
   });
+  chartInstances[canvasId] = chart;
 
-  initRefractionPanel(refId, model);
+  // 굴절 패널을 성장차트 AL축에 세로 정렬: 예측 굴절 종형곡선 중심이 점선 끝점(예측 안축장)과 같은 높이.
+  // chartArea/scale이 동기 계산되지 않았으면(NaN/0) align을 넘기지 않아 패널이 고정축으로 폴백.
+  const yScale = chart.scales?.y;
+  const h = ctx.clientHeight;
+  const area = chart.chartArea;
+  let align;
+  if (yScale && area && h > 0
+      && Number.isFinite(area.top) && Number.isFinite(area.bottom)
+      && Number.isFinite(yScale.getPixelForValue(24))) {
+    align = { topFrac: area.top / h, bottomFrac: area.bottom / h, alMin: yScale.min, alMax: yScale.max };
+  }
+
+  initRefractionPanel(refId, model, align);
   initRiskGauge(riskId, model);
 }
 
