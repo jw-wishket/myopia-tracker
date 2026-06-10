@@ -45,7 +45,7 @@ export function openAddPatientModal(container, user, onComplete) {
     const customRef = modal.element.querySelector('#newPatientCustomRef').value.trim();
     if (!name || !birthDate) return;
     showSyncStatus('syncing', '등록 중...');
-    const result = await addPatient({ name, birthDate, gender, clinicId: user.clinicId, customRef });
+    const result = await addPatient({ name, birthDate, gender, customRef });
     if (result?.error) {
       showSyncStatus('error', '등록 실패');
       alert(result.error);
