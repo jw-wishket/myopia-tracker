@@ -4,3 +4,4 @@ export * from './services/measurements.js';
 export * from './services/treatments.js';
 export * from './services/admin.js';
 export * from './services/notes.js';
+export * from './services/settings.js';
