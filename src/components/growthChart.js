@@ -37,7 +37,7 @@ Chart.register(
 
 const chartInstances = {};
 
-export function renderGrowthChart(canvasId, patient) {
+export function renderGrowthChart(canvasId, patient, projectionMode = 'trend') {
   const refId = `${canvasId}__refraction`;
   const riskId = `${canvasId}__risk`;
   return `
@@ -49,19 +49,19 @@ export function renderGrowthChart(canvasId, patient) {
       <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full" style="background:${OD_COLOR}"></span>우안 (OD)</span>
       <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full" style="background:${OS_COLOR}"></span>좌안 (OS)</span>
       <span class="flex items-center gap-1.5"><span class="w-5 h-0.5 rounded" style="background:#16a34a"></span>P50</span>
-      <span class="flex items-center gap-1.5"><span class="w-5 border-t-2 border-dashed border-slate-400"></span>18세 예측</span>
+      <span class="flex items-center gap-1.5"><span class="w-5 border-t-2 border-dashed border-slate-400"></span>18세 예측 · ${projectionMode === 'trend' ? '추세 연장' : '백분위 추종'}</span>
     </div>
     ${renderRiskGauge(riskId)}
   `;
 }
 
-export function initGrowthChart(canvasId, patient) {
+export function initGrowthChart(canvasId, patient, projectionMode = 'trend') {
   if (!patient) return;
   const ctx = document.getElementById(canvasId);
   if (!ctx) return;
   if (chartInstances[canvasId]) chartInstances[canvasId].destroy();
 
-  const model = computeChartModel(patient);
+  const model = computeChartModel(patient, projectionMode);
   const refId = `${canvasId}__refraction`;
   const riskId = `${canvasId}__risk`;
 
