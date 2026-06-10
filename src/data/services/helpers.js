@@ -12,7 +12,6 @@ export function toPatientJS(p, measurements = [], treatments = []) {
     name: p.name,
     birthDate: p.birth_date,
     gender: p.gender,
-    clinicId: p.clinic_id,
     customRef: p.custom_ref,
     nextVisitDate: p.next_visit_date,
     followUpMonths: p.follow_up_months,
@@ -45,10 +44,8 @@ export function toProfileJS(p) {
     email: p.email,
     name: p.name,
     role: p.role,
-    approved: p.approved,
-    clinicId: p.clinic_id,
-    clinicName: p.clinic_name,
-    children: p.children || [],
+    isAdmin: p.is_admin ?? false,
+    isActive: p.is_active ?? true,
   };
 }
 
