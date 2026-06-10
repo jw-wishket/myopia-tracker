@@ -1,6 +1,5 @@
 import { renderNavbar } from '../components/navbar.js';
 import { renderBottomNav } from '../components/bottomNav.js';
-import { navigate } from '../router.js';
 import { renderSidebar } from '../components/sidebar.js';
 import { renderStatsCard } from '../components/statsCard.js';
 import { renderTreatmentTags } from '../components/treatmentTags.js';
@@ -105,7 +104,7 @@ export async function renderDoctorScreen(container) {
         ${renderPatientContent(selectedPatient, sidebarPatients)}
       </main>
     </div>
-    ${renderBottomNav('patients', { isAdmin: user.isAdmin })}
+    ${renderBottomNav('patients')}
   `;
 
   nav.bind(container);
@@ -527,8 +526,6 @@ function bindDoctorEvents(container, user, patients, selectedPatient) {
         if (selectedPatient) openAddMeasurementModal(container, selectedPatient, rerender);
       } else if (tab === 'settings') {
         openSettingsModal(container, rerender);
-      } else if (tab === 'admin') {
-        navigate('admin');
       }
     });
   });
