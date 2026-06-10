@@ -36,6 +36,7 @@ Chart.register(
 );
 
 const chartInstances = {};
+const chartMeta = {}; // canvasId -> { model, projectionMode } : 이미지 내보내기용
 
 export function renderGrowthChart(canvasId, patient, projectionMode = 'trend') {
   const refId = `${canvasId}__refraction`;
@@ -62,6 +63,7 @@ export function initGrowthChart(canvasId, patient, projectionMode = 'trend') {
   if (chartInstances[canvasId]) chartInstances[canvasId].destroy();
 
   const model = computeChartModel(patient, projectionMode);
+  chartMeta[canvasId] = { model, projectionMode };
   const refId = `${canvasId}__refraction`;
   const riskId = `${canvasId}__risk`;
 
@@ -159,6 +161,134 @@ export function initGrowthChart(canvasId, patient, projectionMode = 'trend') {
 
   initRefractionPanel(refId, model, align);
   initRiskGauge(riskId, model);
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  if (ctx.roundRect) { ctx.roundRect(x, y, w, h, r); return; }
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+const RISK_TEXT_COLORS = ['#059669', '#d97706', '#dc2626']; // 낮음/중간/높음
+const GAUGE_POS = [0.166, 0.5, 0.833];
+
+// renderGrowthChartImage: 차트+굴절패널 캔버스에 제목·범례·위험도 게이지를 합성한 카드 이미지를 반환.
+// (HTML 요소를 캔버스에 직접 그려 oklch/CSP 폰트 문제 없이 '이미지 저장'에서 본 카드와 동일하게 출력)
+export function renderGrowthChartImage(canvasId) {
+  const chart = document.getElementById(canvasId);
+  const meta = chartMeta[canvasId];
+  if (!chart || !meta || !meta.model || meta.model.error) return null;
+  const { model, projectionMode } = meta;
+  const panel = document.getElementById(`${canvasId}__refraction`);
+  const hasPanel = panel && panel.clientWidth > 0;
+  const scale = window.devicePixelRatio || 1;
+
+  const cw = chart.clientWidth, ch = chart.clientHeight;
+  const pw = hasPanel ? panel.clientWidth : 0;
+  const ph = hasPanel ? panel.clientHeight : 0;
+  const gap = hasPanel ? 8 : 0;
+  const rowW = cw + gap + pw;
+
+  const PAD = 16, titleH = 28, legendH = 28, riskTextH = 24, barH = 12, riskLabelH = 18, riskGap = 8;
+  const W = PAD * 2 + rowW;
+  const H = PAD * 2 + titleH + Math.max(ch, ph) + legendH + riskTextH + barH + riskGap + riskLabelH;
+
+  const out = document.createElement('canvas');
+  out.width = Math.round(W * scale);
+  out.height = Math.round(H * scale);
+  const ctx = out.getContext('2d');
+  ctx.scale(scale, scale);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, W, H);
+
+  let y = PAD;
+  // 제목
+  ctx.fillStyle = '#1e293b';
+  ctx.font = '600 15px "Noto Sans KR", system-ui, sans-serif';
+  ctx.textBaseline = 'top';
+  ctx.textAlign = 'left';
+  ctx.fillText('성장 차트', PAD, y + 4);
+  y += titleH;
+
+  // 차트 + 굴절 패널
+  ctx.drawImage(chart, PAD, y, cw, ch);
+  if (hasPanel) ctx.drawImage(panel, PAD + cw + gap, y, pw, ph);
+  y += Math.max(ch, ph);
+
+  // 범례 (가운데 정렬)
+  const projLabel = '18세 예측 · ' + (projectionMode === 'trend' ? '추세 연장' : '백분위 추종');
+  const legend = [
+    { kind: 'dot', color: OD_COLOR, text: '우안 (OD)' },
+    { kind: 'dot', color: OS_COLOR, text: '좌안 (OS)' },
+    { kind: 'line', color: '#16a34a', text: 'P50' },
+    { kind: 'dash', color: '#94a3b8', text: projLabel },
+  ];
+  ctx.font = '12px "Noto Sans KR", system-ui, sans-serif';
+  ctx.textBaseline = 'middle';
+  const mW = 20, mGap = 6, itemGap = 16;
+  let totalW = -itemGap;
+  for (const it of legend) totalW += mW + mGap + ctx.measureText(it.text).width + itemGap;
+  let lx = PAD + Math.max(0, (rowW - totalW) / 2);
+  const ly = y + legendH / 2;
+  for (const it of legend) {
+    if (it.kind === 'dot') {
+      ctx.fillStyle = it.color;
+      ctx.beginPath(); ctx.arc(lx + 5, ly, 5, 0, Math.PI * 2); ctx.fill();
+    } else {
+      ctx.strokeStyle = it.color; ctx.lineWidth = 2;
+      ctx.setLineDash(it.kind === 'dash' ? [5, 3] : []);
+      ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx + mW, ly); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    lx += mW + mGap;
+    ctx.fillStyle = '#64748b'; ctx.textAlign = 'left';
+    ctx.fillText(it.text, lx, ly);
+    lx += ctx.measureText(it.text).width + itemGap;
+  }
+  y += legendH;
+
+  // 위험도 라벨
+  ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+  ctx.font = '13px "Noto Sans KR", system-ui, sans-serif';
+  ctx.fillStyle = '#64748b';
+  const pre = '데이터 기반 위험도: ';
+  ctx.fillText(pre, PAD, y + 4);
+  ctx.font = '600 13px "Noto Sans KR", system-ui, sans-serif';
+  ctx.fillStyle = model.riskLevel != null ? RISK_TEXT_COLORS[model.riskLevel] : '#1e293b';
+  ctx.fillText(model.risk || '-', PAD + ctx.measureText(pre).width, y + 4);
+  y += riskTextH;
+
+  // 그라데이션 게이지 바
+  const barX = PAD, barW = rowW;
+  const grad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
+  grad.addColorStop(0, '#16a34a'); grad.addColorStop(0.5, '#facc15'); grad.addColorStop(1, '#dc2626');
+  roundRect(ctx, barX, y, barW, barH, 6); ctx.fillStyle = grad; ctx.fill();
+  if (model.previousRiskLevel != null) {
+    const pmx = barX + barW * GAUGE_POS[model.previousRiskLevel];
+    ctx.fillStyle = 'rgba(148,163,184,0.85)';
+    roundRect(ctx, pmx - 2, y - 2, 4, barH + 4, 2); ctx.fill();
+  }
+  if (model.riskLevel != null) {
+    const mx = barX + barW * GAUGE_POS[model.riskLevel];
+    ctx.fillStyle = '#0f172a';
+    roundRect(ctx, mx - 3, y - 3, 6, barH + 6, 2); ctx.fill();
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; roundRect(ctx, mx - 3, y - 3, 6, barH + 6, 2); ctx.stroke();
+  }
+  y += barH + riskGap;
+
+  // 구간 라벨
+  ctx.font = '11px "Noto Sans KR", system-ui, sans-serif';
+  ctx.fillStyle = '#94a3b8'; ctx.textBaseline = 'top';
+  ctx.textAlign = 'left'; ctx.fillText('위험도 낮음', barX, y);
+  ctx.textAlign = 'center'; ctx.fillText('위험도 중간', barX + barW / 2, y);
+  ctx.textAlign = 'right'; ctx.fillText('위험도 높음', barX + barW, y);
+
+  return out;
 }
 
 export function destroyChart(canvasId) {
