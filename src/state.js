@@ -2,6 +2,7 @@ let _state = {
   currentUser: null,
   currentPatient: null,
   currentChartType: 'AL',
+  projectionMode: 'trend',
 };
 
 const listeners = new Set();
