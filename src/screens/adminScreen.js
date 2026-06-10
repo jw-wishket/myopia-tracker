@@ -5,7 +5,7 @@ import {
   getTreatmentTypes, addTreatmentType, deleteTreatmentType,
 } from '../data/dataService.js';
 import { openModal } from '../components/modal.js';
-import { formatDate, escapeHtml } from '../utils.js';
+import { escapeHtml } from '../utils.js';
 
 function safeColor(color) {
   return /^#[0-9a-fA-F]{6}$/.test(color) ? color : '#7c3aed';
