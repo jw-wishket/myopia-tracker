@@ -3,6 +3,10 @@
 -- Replaces all prior multi-tenant migrations.
 -- Roles: doctor | nurse (identical clinical CRUD). is_admin = capability flag.
 -- ============================================================
+-- APPLY NOTE: This migration assumes a FRESH database. It is NOT idempotent and
+-- will fail on a database that ran the prior multi-tenant migrations. Apply via
+-- `supabase db reset` (local) or a brand-new Supabase project — not `db push`
+-- onto the previously-migrated project.
 
 -- ---------- Tables ----------
 create table public.profiles (
@@ -124,8 +128,6 @@ $$;
 -- active staff can read all rows (for the admin user-management list).
 create policy "View profiles" on public.profiles
   for select using (id = auth.uid() or public.is_active_staff());
-create policy "Insert own profile" on public.profiles
-  for insert with check (id = auth.uid());
 create policy "Update own profile" on public.profiles
   for update using (id = auth.uid());
 create policy "Admins update any profile" on public.profiles
@@ -135,6 +137,8 @@ create policy "Admins update any profile" on public.profiles
 -- so this trigger is the ONLY thing preventing a non-admin from self-granting
 -- is_admin / reactivating themselves / changing their role. Non-admin callers
 -- get privileged columns reverted to their prior values; admins may change them.
+-- INSERT is not client-exposed — profiles are created solely by the handle_new_user
+-- signup trigger; the guard trigger below covers UPDATE.
 create or replace function public.guard_profile_changes()
 returns trigger language plpgsql security definer set search_path = '' as $$
 begin
@@ -180,6 +184,7 @@ create policy "Staff update treatments" on public.treatments
 create policy "Staff delete treatments" on public.treatments
   for delete using (public.is_active_staff());
 
+-- Notes are immutable by design: no UPDATE policy (edit = delete + reinsert).
 -- ---------- Notes policies ----------
 -- DELIBERATE DECISION: unlike patients/measurements/treatments (shared-pool delete),
 -- a note may only be deleted by its author or an admin — clinical notes are personal.
