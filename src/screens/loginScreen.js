@@ -104,6 +104,14 @@ export async function renderLoginScreen(container) {
       setState({ currentUser: user });
       navigate(routeForUser(user));
     } catch (err) {
+      errEl.classList.remove('text-amber-600', 'text-green-600');
+      // 승인 대기 계정: 오류가 아니라 안내(앰버)로 표시
+      if (err.code === 'PENDING_APPROVAL') {
+        errEl.textContent = '관리자 승인 대기 중입니다. 승인 후 로그인할 수 있습니다.';
+        errEl.classList.remove('hidden', 'text-red-500');
+        errEl.classList.add('text-amber-600');
+        return;
+      }
       const msg = err.message || '';
       const koreanErrors = {
         'Invalid login credentials': '이메일 또는 비밀번호가 올바르지 않습니다',
@@ -111,6 +119,7 @@ export async function renderLoginScreen(container) {
         'User not found': '등록되지 않은 이메일입니다',
       };
       errEl.textContent = koreanErrors[msg] || '로그인에 실패했습니다';
+      errEl.classList.add('text-red-500');
       errEl.classList.remove('hidden');
     }
   });

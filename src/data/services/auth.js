@@ -4,6 +4,16 @@ import { toProfileJS } from './helpers.js';
 export async function loginWithEmail(email, password) {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw error;
+  // 승인 대기(비활성) 계정 구분: 인증은 성공했지만 관리자 승인 전이면 세션을 정리하고 안내한다.
+  // (자기 행은 RLS상 본인이 읽을 수 있음. 실제 데이터 차단은 RLS is_active_staff().)
+  const { data: profile } = await supabase
+    .from('profiles').select('is_active').eq('id', data.user.id).single();
+  if (profile && profile.is_active === false) {
+    await supabase.auth.signOut();
+    const e = new Error('PENDING_APPROVAL');
+    e.code = 'PENDING_APPROVAL';
+    throw e;
+  }
   return await getCurrentUser();
 }
 

@@ -33,7 +33,7 @@ export async function renderAdminScreen(container) {
       </div>
 
       <div class="flex gap-2 border-b border-slate-200 overflow-x-auto">
-        ${tabBtn('users', '사용자')}
+        ${tabBtn('users', '사용자', users.filter(u => !u.isActive).length)}
         ${tabBtn('treatments', '치료종류')}
         ${tabBtn('settings', '예측 설정')}
       </div>
@@ -129,7 +129,7 @@ function tabBtn(id, label, count) {
   const isActive = activeTab === id;
   return `
     <button class="admin-tab px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${isActive ? 'border-primary-600 text-primary-600' : 'border-transparent text-slate-500 hover:text-slate-700'}" data-tab="${id}">
-      ${label}${count ? ` <span class="ml-1 px-1.5 py-0.5 text-xs rounded-full ${isActive ? 'bg-primary-100 text-primary-700' : 'bg-slate-100 text-slate-500'}">${count}</span>` : ''}
+      ${label}${count ? ` <span class="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-amber-100 text-amber-700" title="승인 대기">${count}</span>` : ''}
     </button>
   `;
 }
