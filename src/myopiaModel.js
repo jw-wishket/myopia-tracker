@@ -98,23 +98,25 @@ export function projectToAge(gender, currentAge, al, toAge = 18) {
   return { percentile: pNum, points, predictedAL: refValue(gender, toAge, pNum) };
 }
 
-// regressionSlope: 최소제곱 기울기 (points: [{x,y}]). n<2 또는 분모 0이면 null.
-export function regressionSlope(points) {
+// recentSlope: 최근 진행 추세 = 마지막 두 측정점의 기울기 (mm/나이년).
+// 측정점이 3개 이상이어도 가장 최근 구간만 사용한다 → 둔화/가속형 환자에서
+// 점선 기울기가 차트에 표시된 '진행 속도'(progressionRate)와 일치하고 꺾임이 없다.
+// n<2 또는 두 점의 나이가 같으면(분모 0) null.
+export function recentSlope(points) {
   const n = points.length;
   if (n < 2) return null;
-  let meanX = 0, meanY = 0;
-  for (const p of points) { meanX += p.x; meanY += p.y; }
-  meanX /= n; meanY /= n;
-  let num = 0, den = 0;
-  for (const p of points) { num += (p.x - meanX) * (p.y - meanY); den += (p.x - meanX) ** 2; }
-  if (den === 0) return null;
-  return num / den;
+  const last = points[n - 1];
+  const prev = points[n - 2];
+  const dx = last.x - prev.x;
+  if (dx === 0) return null;
+  return (last.y - prev.y) / dx;
 }
 
-// projectByTrend: 측정점 추세(회귀 기울기)를 마지막 점에 앵커해 toAge까지 직선 연장.
-// 회귀 불가(<2점/동일나이)면 null → 호출부가 백분위 추종으로 폴백.
+// projectByTrend: 최근 진행 추세(마지막 두 측정점의 기울기)를 마지막 점에 앵커해 toAge까지 직선 연장.
+// 전체 회귀가 아닌 최근 구간 기울기를 써서 점선이 마지막 측정 추세를 그대로 잇는다.
+// 추세 산출 불가(<2점/동일나이)면 null → 호출부가 백분위 추종으로 폴백.
 export function projectByTrend(eyePoints, toAge = 18) {
-  const slope = regressionSlope(eyePoints);
+  const slope = recentSlope(eyePoints);
   if (slope === null) return null;
   const last = eyePoints[eyePoints.length - 1];
   const raw = last.y + slope * (toAge - last.x);
@@ -125,6 +127,46 @@ export function projectByTrend(eyePoints, toAge = 18) {
     points: [{ x: last.x, y: last.y }, { x: toAge, y: predictedAL }],
     predictedAL,
   };
+}
+
+// refVelocity: 특정 백분위 기준곡선이 해당 나이에서 갖는 순간 기울기(mm/나이년). 중앙차분(±0.5세).
+function refVelocity(gender, age, pNum) {
+  const lo = Math.max(4, age - 0.5);
+  const hi = Math.min(18, age + 0.5);
+  if (hi <= lo) return null;
+  return (refValue(gender, hi, pNum) - refValue(gender, lo, pNum)) / (hi - lo);
+}
+
+// projectByTrendCurve: 최근 진행 속도를 앵커로, 환자 현재 백분위 곡선의 감속(곡률) 모양을 따라 toAge까지 곡선 연장.
+// - 시작 기울기 = recentSlope → 대시보드 '진행 속도' 값과 일치 (직선 모드의 일관성 유지)
+// - 곡률 = 기준 백분위 곡선의 모양 → 18세로 갈수록 자연 둔화, 단조 비감소, 역전 없음
+// k = recentSlope / refVelocity(앵커나이): 환자 속도를 기준곡선 속도에 맞춰 스케일.
+// 산출 불가(<2점 / 백분위 범위밖 / 기준속도≤0)면 null → 호출부가 직선→백분위로 폴백.
+export function projectByTrendCurve(gender, eyePoints, toAge = 18) {
+  const slope = recentSlope(eyePoints);
+  if (slope === null) return null;
+  const last = eyePoints[eyePoints.length - 1];
+  const p = calcPercentile(gender, last.x, last.y);
+  if (p === null) return null;
+  const pNum = p === '<3' ? 3 : p === '>95' ? 95 : p;
+  const refVel = refVelocity(gender, last.x, pNum);
+  if (refVel === null || refVel <= 0) return null;
+  const k = slope / refVel;
+  const refLast = refValue(gender, last.x, pNum);
+  const points = [];
+  let prevY = last.y;
+  for (let a = last.x; a <= toAge + 1e-9; a += 0.5) {
+    const ax = Math.round(a * 10) / 10;
+    const raw = last.y + k * (refValue(gender, ax, pNum) - refLast);
+    const y = Math.max(prevY, Math.max(18, Math.min(32, raw))); // 18~32 클램프 + 단조 비감소 가드
+    points.push({ x: ax, y });
+    prevY = y;
+  }
+  if (points[points.length - 1].x < toAge) {
+    const raw = last.y + k * (refValue(gender, toAge, pNum) - refLast);
+    points.push({ x: toAge, y: Math.max(prevY, Math.max(18, Math.min(32, raw))) });
+  }
+  return { mode: 'trend', slope, points, predictedAL: points[points.length - 1].y };
 }
 
 // alToRefraction(al): R = alpha + beta * AL (선형 변환)
@@ -171,7 +213,9 @@ function _eyeModel(gender, records, alKey, mode = 'percentile') {
   const eyeRecords = records.filter((r) => Number.isFinite(r[alKey]));
   if (eyeRecords.length === 0) return null;
   const points = eyeRecords.map((r) => ({ x: r.age, y: r[alKey] }));
-  let projection = mode === 'trend' ? projectByTrend(points, 18) : null;
+  let projection = mode === 'trend'
+    ? (projectByTrendCurve(gender, points, 18) || projectByTrend(points, 18))
+    : null;
   if (!projection) {
     const lr = eyeRecords[eyeRecords.length - 1];
     projection = projectToAge(gender, lr.age, lr[alKey], 18);

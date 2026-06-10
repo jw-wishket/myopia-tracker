@@ -191,7 +191,7 @@ function renderSettings(mode) {
       <h3 class="text-sm font-semibold text-slate-800 mb-1">성장 차트 18세 예측 방식</h3>
       <p class="text-xs text-slate-500 mb-4">모든 사용자의 차트에 적용됩니다. 변경 시 대시보드에 즉시 반영됩니다.</p>
       <div class="space-y-3">
-        ${opt('trend', '추세 연장', '환자 측정점의 기울기(최소제곱 회귀)를 18세까지 직선으로 연장합니다.')}
+        ${opt('trend', '추세 연장', '최근 진행 속도(대시보드 값과 일치)로 시작해, 기준 성장곡선 모양을 따라 18세까지 곡선으로 연장합니다. 나이가 들수록 자연스럽게 감속합니다.')}
         ${opt('percentile', '백분위 추종', '현재 백분위 곡선을 18세까지 그대로 따라갑니다.')}
       </div>
     </div>`;
