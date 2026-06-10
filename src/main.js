@@ -1,6 +1,6 @@
 import './style.css';
 import { registerRoute, startRouter, navigate } from './router.js';
-import { getCurrentUser } from './data/dataService.js';
+import { getCurrentUser, getSetting } from './data/dataService.js';
 import { getState, setState } from './state.js';
 import { routeForUser } from './routing.js';
 
@@ -49,6 +49,10 @@ registerRoute('admin', adminGuard(lazyRoute('admin')));
   const user = await getCurrentUser();
   if (user) {
     setState({ currentUser: user });
+    try {
+      const mode = await getSetting('projection_mode');
+      if (mode) setState({ projectionMode: mode });
+    } catch { /* 실패 시 기본 'trend' 유지 */ }
     window.location.hash = routeForUser(user);
   }
   startRouter(document.getElementById('app'));
