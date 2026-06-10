@@ -6,13 +6,18 @@ import { setState } from '../state.js';
 export function renderNavbar(options = {}) {
   const { title = '근시관리 트래커', subtitle = '', showBack = false, backTarget = 'login', user = null } = options;
 
+  const adminLink = user && user.isAdmin ? `
+    <button id="navAdminBtn" class="hidden sm:inline-flex text-xs font-medium text-primary-600 border border-primary-200 rounded-lg px-3 py-1.5 hover:bg-primary-50 transition-colors">관리</button>
+  ` : '';
+
   const userBadge = user ? `
     <div class="flex items-center gap-3">
+      ${adminLink}
       <div class="hidden sm:flex items-center gap-2 text-sm text-slate-600">
         <div class="w-8 h-8 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center text-xs font-semibold">
           ${user.name?.charAt(0) || '?'}
         </div>
-        <span>${user.name}${user.clinicName ? ' · ' + user.clinicName : ''}</span>
+        <span>${user.name}${user.role === 'nurse' ? ' · 간호사' : ''}</span>
       </div>
       <button id="navLogoutBtn" class="text-slate-400 hover:text-slate-600 p-2 rounded-lg hover:bg-slate-100 transition-colors" title="로그아웃">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
@@ -52,6 +57,10 @@ export function renderNavbar(options = {}) {
           setState({ currentUser: null, currentPatient: null });
           navigate('login');
         });
+      }
+      const adminBtn = container.querySelector('#navAdminBtn');
+      if (adminBtn) {
+        adminBtn.addEventListener('click', () => navigate('admin'));
       }
       const backBtnEl = container.querySelector('#navBackBtn');
       if (backBtnEl) {
