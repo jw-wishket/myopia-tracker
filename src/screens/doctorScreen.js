@@ -530,14 +530,31 @@ function bindDoctorEvents(container, user, patients, selectedPatient) {
     });
   });
 
-  // Save growth chart as image
+  // Save growth chart as image — 흰 배경 합성(투명 PNG 방지) + 굴절 패널까지 포함
   const saveChartBtn = container.querySelector('#saveGrowthChartBtn');
   if (saveChartBtn && selectedPatient) {
     saveChartBtn.addEventListener('click', () => {
-      const canvas = document.getElementById('growthChart');
-      if (!canvas) return;
+      const chart = document.getElementById('growthChart');
+      if (!chart) return;
+      const panel = document.getElementById('growthChart__refraction');
+      const hasPanel = panel && panel.clientWidth > 0;
+      const scale = window.devicePixelRatio || 1;
+      const cw = chart.clientWidth, ch = chart.clientHeight;
+      const pw = hasPanel ? panel.clientWidth : 0;
+      const ph = hasPanel ? panel.clientHeight : 0;
+      const gap = hasPanel ? 8 : 0;
+      const W = cw + gap + pw, H = Math.max(ch, ph);
+      const out = document.createElement('canvas');
+      out.width = Math.round(W * scale);
+      out.height = Math.round(H * scale);
+      const ctx = out.getContext('2d');
+      ctx.scale(scale, scale);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, W, H);
+      ctx.drawImage(chart, 0, 0, cw, ch);
+      if (hasPanel) ctx.drawImage(panel, cw + gap, 0, pw, ph);
       const link = document.createElement('a');
-      link.href = canvas.toDataURL('image/png');
+      link.href = out.toDataURL('image/png');
       link.download = `${selectedPatient.name}_성장차트.png`;
       link.click();
     });
