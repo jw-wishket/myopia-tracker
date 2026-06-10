@@ -26,21 +26,9 @@ export async function getCurrentUser() {
 
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
   if (!profile) return null;
-  if (profile.role === 'deactivated') return null;
+  if (profile.is_active === false) return null; // UX gate; real gate is RLS is_active_staff()
 
-  // Fetch clinic name from clinics table (not the stale profiles.clinic_name)
-  let clinicName = profile.clinic_name;
-  if (profile.clinic_id) {
-    const { data: clinic } = await supabase.from('clinics').select('name').eq('id', profile.clinic_id).single();
-    if (clinic) clinicName = clinic.name;
-  }
-
-  if (profile.role === 'doctor' && !profile.approved) {
-    // Return limited profile for pending screen routing
-    return { ...toProfileJS(profile), clinicName, pending: true };
-  }
-
-  return { ...toProfileJS(profile), clinicName };
+  return toProfileJS(profile);
 }
 
 export async function resetPassword(email) {
@@ -57,33 +45,8 @@ export async function updateProfile(updates) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return false;
   const dbUpdates = {};
-
-  if (updates.children !== undefined) {
-    // Validate children entries - remove any patientId that doesn't exist or doesn't match
-    const validatedChildren = [];
-    for (const child of updates.children) {
-      const entry = { name: child.name, birthDate: child.birthDate };
-      if (child.clinicId) entry.clinicId = child.clinicId;
-
-      if (child.patientId) {
-        // Verify patient exists and matches name+birthDate
-        const { data: patient } = await supabase.from('patients')
-          .select('id, name, birth_date')
-          .eq('id', child.patientId)
-          .single();
-        if (patient && patient.name === child.name && patient.birth_date === child.birthDate) {
-          entry.patientId = child.patientId;
-        }
-        // If validation fails, keep the child entry but without patientId
-      }
-      validatedChildren.push(entry);
-    }
-    dbUpdates.children = validatedChildren;
-  }
-
   if (updates.name !== undefined) dbUpdates.name = updates.name;
-  if (updates.clinicId !== undefined) { dbUpdates.clinic_id = updates.clinicId; }
-  if (updates.clinicName !== undefined) { dbUpdates.clinic_name = updates.clinicName; }
+  if (Object.keys(dbUpdates).length === 0) return true;
   const { error } = await supabase.from('profiles').update(dbUpdates).eq('id', user.id);
   if (error) { console.error('updateProfile error:', error); return false; }
   return true;
