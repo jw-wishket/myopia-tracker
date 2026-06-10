@@ -11,5 +11,6 @@ describe('routeForUser', () => {
   });
   it('defaults null/undefined user to login', () => {
     expect(routeForUser(null)).toBe('login');
+    expect(routeForUser(undefined)).toBe('login');
   });
 });
