@@ -553,10 +553,19 @@ function bindDoctorEvents(container, user, patients, selectedPatient) {
       ctx.fillRect(0, 0, W, H);
       ctx.drawImage(chart, 0, 0, cw, ch);
       if (hasPanel) ctx.drawImage(panel, cw + gap, 0, pw, ph);
-      const link = document.createElement('a');
-      link.href = out.toDataURL('image/png');
-      link.download = `${selectedPatient.name}_성장차트.png`;
-      link.click();
+      // Blob + objectURL 방식: 큰 data: URL을 Chrome이 내부 blob 처리하며 download 파일명을
+      // 잃어버리는 문제(UUID·무확장자 저장) 방지. 앵커를 DOM에 붙여야 download가 확실히 적용됨.
+      out.toBlob((blob) => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${selectedPatient.name}_성장차트.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }, 'image/png');
     });
   }
 
