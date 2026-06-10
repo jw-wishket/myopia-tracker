@@ -98,6 +98,35 @@ export function projectToAge(gender, currentAge, al, toAge = 18) {
   return { percentile: pNum, points, predictedAL: refValue(gender, toAge, pNum) };
 }
 
+// regressionSlope: 최소제곱 기울기 (points: [{x,y}]). n<2 또는 분모 0이면 null.
+export function regressionSlope(points) {
+  const n = points.length;
+  if (n < 2) return null;
+  let meanX = 0, meanY = 0;
+  for (const p of points) { meanX += p.x; meanY += p.y; }
+  meanX /= n; meanY /= n;
+  let num = 0, den = 0;
+  for (const p of points) { num += (p.x - meanX) * (p.y - meanY); den += (p.x - meanX) ** 2; }
+  if (den === 0) return null;
+  return num / den;
+}
+
+// projectByTrend: 측정점 추세(회귀 기울기)를 마지막 점에 앵커해 toAge까지 직선 연장.
+// 회귀 불가(<2점/동일나이)면 null → 호출부가 백분위 추종으로 폴백.
+export function projectByTrend(eyePoints, toAge = 18) {
+  const slope = regressionSlope(eyePoints);
+  if (slope === null) return null;
+  const last = eyePoints[eyePoints.length - 1];
+  const raw = last.y + slope * (toAge - last.x);
+  const predictedAL = Math.max(18, Math.min(32, raw));
+  return {
+    mode: 'trend',
+    slope,
+    points: [{ x: last.x, y: last.y }, { x: toAge, y: predictedAL }],
+    predictedAL,
+  };
+}
+
 // alToRefraction(al): R = alpha + beta * AL (선형 변환)
 export function alToRefraction(al) {
   const { alpha, beta } = REFRACTION_MODEL;
@@ -138,42 +167,46 @@ export function assessRisk(predictedSE, progRate) {
 
 const RISK_LABELS = ['낮음', '중간', '높음'];
 
-function _eyeModel(gender, records, alKey) {
+function _eyeModel(gender, records, alKey, mode = 'percentile') {
   const eyeRecords = records.filter((r) => Number.isFinite(r[alKey]));
   if (eyeRecords.length === 0) return null;
-  const lr = eyeRecords[eyeRecords.length - 1];
-  const projection = projectToAge(gender, lr.age, lr[alKey], 18);
+  const points = eyeRecords.map((r) => ({ x: r.age, y: r[alKey] }));
+  let projection = mode === 'trend' ? projectByTrend(points, 18) : null;
+  if (!projection) {
+    const lr = eyeRecords[eyeRecords.length - 1];
+    projection = projectToAge(gender, lr.age, lr[alKey], 18);
+  }
   if (!projection) return null;
   return {
-    points: eyeRecords.map((r) => ({ x: r.age, y: r[alKey] })),
+    points,
     projection,
     predSE: predictAdultRefraction(projection.predictedAL),
   };
 }
 
-function _riskFor(gender, records) {
-  const od = _eyeModel(gender, records, 'odAL');
-  const os = _eyeModel(gender, records, 'osAL');
+function _riskFor(gender, records, mode = 'percentile') {
+  const od = _eyeModel(gender, records, 'odAL', mode);
+  const os = _eyeModel(gender, records, 'osAL', mode);
   const ses = [od?.predSE.mean, os?.predSE.mean].filter((v) => v != null);
   if (ses.length === 0) return null;
-  const worstSE = Math.min(...ses); // 가장 근시 쪽
+  const worstSE = Math.min(...ses);
   const rates = [progressionRate(records, 'odAL'), progressionRate(records, 'osAL')].filter((v) => v != null);
   const maxRate = rates.length ? Math.max(...rates) : null;
   return { label: assessRisk(worstSE, maxRate), rate: maxRate };
 }
 
-// computeChartModel(patient): 차트·패널·게이지가 공유하는 단일 진실원
-export function computeChartModel(patient) {
+// computeChartModel(patient, projectionMode): 차트·패널·게이지가 공유하는 단일 진실원
+export function computeChartModel(patient, projectionMode = 'percentile') {
   const gender = patient?.gender;
   if (!gender || !PERCENTILE_DATA[gender]) return { error: 'gender' };
   const records = (patient.records || []).filter((r) => r.age >= 4 && r.age <= 18);
 
   const curves = generatePercentileCurves(gender);
-  const od = _eyeModel(gender, records, 'odAL');
-  const os = _eyeModel(gender, records, 'osAL');
+  const od = _eyeModel(gender, records, 'odAL', projectionMode);
+  const os = _eyeModel(gender, records, 'osAL', projectionMode);
 
-  const current = _riskFor(gender, records);
-  const prev = records.length >= 3 ? _riskFor(gender, records.slice(0, -1)) : null;
+  const current = _riskFor(gender, records, projectionMode);
+  const prev = records.length >= 3 ? _riskFor(gender, records.slice(0, -1), projectionMode) : null;
 
   return {
     gender,

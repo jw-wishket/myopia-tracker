@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { interpolateValue, refValue, calcPercentile, calcPct, generatePercentileCurves, generateCurveData, projectToAge, alToRefraction, predictAdultRefraction, progressionRate, assessRisk, computeChartModel } from './myopiaModel.js';
+import { interpolateValue, refValue, calcPercentile, calcPct, generatePercentileCurves, generateCurveData, projectToAge, projectByTrend, regressionSlope, alToRefraction, predictAdultRefraction, progressionRate, assessRisk, computeChartModel } from './myopiaModel.js';
 import { PERCENTILE_GRID } from './constants.js';
 
 const maleData = [
@@ -195,5 +195,63 @@ describe('결측 안축장(NaN) 처리', () => {
     expect(m.od).toBeNull();
     expect(m.os).not.toBeNull();
     expect(['낮음', '중간', '높음']).toContain(m.risk);
+  });
+});
+
+describe('regressionSlope', () => {
+  it('두 점의 기울기 = (y2-y1)/(x2-x1)', () => {
+    expect(regressionSlope([{ x: 12.5, y: 24.20 }, { x: 13.4, y: 24.55 }])).toBeCloseTo(0.3889, 3);
+  });
+  it('1점이면 null', () => {
+    expect(regressionSlope([{ x: 10, y: 23 }])).toBeNull();
+  });
+  it('동일 나이만 있으면(분모 0) null', () => {
+    expect(regressionSlope([{ x: 10, y: 23 }, { x: 10, y: 24 }])).toBeNull();
+  });
+});
+
+describe('projectByTrend', () => {
+  it('마지막 점 앵커 + 회귀 기울기로 18세 예측', () => {
+    const proj = projectByTrend([{ x: 12.5, y: 24.20 }, { x: 13.4, y: 24.55 }], 18);
+    expect(proj.mode).toBe('trend');
+    expect(proj.slope).toBeCloseTo(0.3889, 3);
+    expect(proj.predictedAL).toBeCloseTo(26.34, 1);
+    expect(proj.points[0]).toEqual({ x: 13.4, y: 24.55 });
+    expect(proj.points[proj.points.length - 1].x).toBe(18);
+  });
+  it('급진행 예측은 32mm로 클램프', () => {
+    const proj = projectByTrend([{ x: 10, y: 25 }, { x: 12, y: 28 }], 18);
+    expect(proj.predictedAL).toBe(32);
+  });
+  it('측정 1개면 null(폴백 트리거)', () => {
+    expect(projectByTrend([{ x: 10, y: 23 }], 18)).toBeNull();
+  });
+});
+
+describe('computeChartModel projectionMode', () => {
+  const patient = {
+    gender: 'female',
+    records: [
+      { date: '2024-07-01', age: 12.5, odAL: 24.20, osAL: 24.22 },
+      { date: '2025-12-01', age: 13.4, odAL: 24.55, osAL: 24.58 },
+    ],
+    treatments: [],
+  };
+  it('기본(인자 없음)은 백분위 추종 — 기존 동작 유지', () => {
+    const m = computeChartModel(patient);
+    expect(m.od.projection.mode).toBeUndefined();
+    expect(typeof m.od.projection.percentile).toBe('number');
+  });
+  it("'trend' 모드는 추세 기반 예측(2점 직선)", () => {
+    const m = computeChartModel(patient, 'trend');
+    expect(m.od.projection.mode).toBe('trend');
+    expect(m.od.projection.points.length).toBe(2);
+    expect(m.od.projection.predictedAL).toBeCloseTo(26.34, 1);
+  });
+  it('측정 1개 + trend → 백분위 폴백', () => {
+    const single = { gender: 'female', records: [{ date: '2025-12-01', age: 13.4, odAL: 24.55, osAL: 24.58 }], treatments: [] };
+    const m = computeChartModel(single, 'trend');
+    expect(m.od.projection.mode).toBeUndefined();
+    expect(typeof m.od.projection.percentile).toBe('number');
   });
 });
