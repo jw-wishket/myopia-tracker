@@ -2,9 +2,9 @@
 
 ## 프로젝트 개요
 
-안과 환자의 근시 진행을 추적하고 관리하는 반응형 SPA 웹 애플리케이션.
-의사가 환자 데이터를 입력하고, 보호자는 자녀의 기록을 조회하는 구조.
-멀티 테넌트 (여러 안과) 또는 단일 병원 전용으로 전환 가능.
+환자의 근시 진행을 추적하고 관리하는 반응형 SPA 웹 애플리케이션.
+의사·간호사가 단일 공유 환자 풀에서 함께 데이터를 입력·관리하는 단일 워크스페이스 구조.
+최초 가입 계정이 자동으로 관리자(is_admin)가 된다.
 
 ## 기술 스택
 
@@ -56,15 +56,13 @@ src/
 │   ├── dataService.js      # 배럴 파일 (모든 서비스 re-export)
 │   ├── supabaseClient.js   # Supabase 클라이언트 초기화
 │   ├── patientCache.js     # 클라이언트 캐시 (30초 TTL, 뮤테이션 시 invalidate)
-│   ├── mockData.js         # 레거시 데모 데이터 (현재 미사용)
 │   └── services/
 │       ├── helpers.js      # toPatientJS, fetchPatientFull(Promise.all), logAudit, escapeLike
 │       ├── auth.js         # loginWithEmail, registerWithEmail, getCurrentUser, changePassword
 │       ├── patients.js     # CRUD + getRecentPatients + searchPatientsLight + getPatientCount
 │       ├── measurements.js # addMeasurement, deleteRecord, importMeasurements(배치)
 │       ├── treatments.js   # CRUD + getTreatmentTypes + addTreatmentType
-│       ├── clinics.js      # CRUD + soft delete (is_active)
-│       ├── admin.js        # 승인, 통계, 의사/환자 목록, 비활성화
+│       ├── admin.js        # 통계, 사용자 목록, is_admin 부여/해제, 계정 활성화/비활성화
 │       └── notes.js        # 환자 메모 CRUD
 ├── components/             # 15개 컴포넌트
 │   ├── navbar.js, sidebar.js, bottomNav.js
@@ -77,12 +75,10 @@ src/
 │   ├── patientNotes.js
 │   └── printReport.js      # 인쇄용 리포트 (새 창)
 └── screens/
-    ├── loginScreen.js       # 안과선택+이름+(생일/관리번호) 조회, 레이트리밋
-    ├── registerScreen.js    # 3단계 위저드 (role 하드코딩 'customer')
-    ├── doctorScreen.js      # 의사 대시보드 (최근10명 사이드바, 키보드 단축키)
-    ├── customerScreen.js    # 보호자 (patientId 직접 조회, 다중 안과)
-    ├── adminScreen.js       # 5탭 (승인/안과/의사/환자/치료)
-    ├── pendingScreen.js     # 미승인 의사 대기 화면
+    ├── loginScreen.js       # 이메일/비밀번호 로그인
+    ├── registerScreen.js    # 역할(doctor/nurse) 선택 + 이름 입력 회원가입
+    ├── doctorScreen.js      # 의사·간호사 대시보드 (최근10명 사이드바, 키보드 단축키)
+    ├── adminScreen.js       # 2탭 (사용자 관리 + 치료종류 관리)
     └── doctor/
         ├── modals.js        # 환자등록/수정, 측정입력, CSV임포트, 설정, 단축키 도움말
         └── exportUtils.js   # CSV 내보내기
@@ -94,34 +90,29 @@ src/
 |------|------|------|----------|
 | `#login` | loginScreen | 불필요 | lazy |
 | `#register` | registerScreen | 불필요 | lazy |
-| `#pending` | pendingScreen | 불필요 | lazy |
-| `#doctor` | doctorScreen | 필요 (approved) | lazy |
-| `#customer` | customerScreen | 필요 | lazy |
-| `#admin` | adminScreen | 필요 | lazy |
-| `#patient-result` | (인라인) | 불필요 | lazy (컴포넌트별) |
+| `#doctor` | doctorScreen | 필요 (is_active) | lazy |
+| `#admin` | adminScreen | 필요 (is_admin) | lazy |
 
 ## 사용자 역할
 
-- **의사 (doctor):** 환자 CRUD, 측정/치료 입력, 분석, CSV, 리포트, 메모, 키보드 단축키
-- **보호자 (customer):** 자녀 데이터 읽기 전용, 자녀 관리, 리포트 출력
-- **관리자 (admin):** 승인/거부, 안과/의사/환자/치료종류 관리, 계정 비활성화
-- **비로그인:** 안과+이름+(생일/관리번호)로 환자 조회 (RPC 함수, 레이트리밋)
+- **의사·간호사 (doctor/nurse):** 동일한 진료 권한 — 환자 CRUD, 측정/치료 입력, 분석, CSV, 리포트, 메모, 키보드 단축키
+- **관리자 (is_admin 플래그):** 최초 가입 계정에 자동 부여. 다른 사용자에게 관리자 권한 부여/해제, 계정 활성화/비활성화, 치료종류 관리. 진료 권한은 일반 스태프와 동일.
 
 ## 데이터 모델 (Supabase)
 
-9개 테이블: profiles, patients, measurements, treatments, clinics, treatment_types, notes, approval_requests, audit_log
+7개 테이블: profiles, patients, measurements, treatments, notes, treatment_types, audit_log
 
-12개 마이그레이션 (supabase/migrations/ 디렉토리)
+1개 통합 마이그레이션 (`supabase/migrations/20260610000000_init_single_tenant.sql`)
 
 ## 보안
 
 - **RLS:** 모든 테이블에 Row Level Security 적용
-- **헬퍼 함수:** `get_my_role()`, `get_my_clinic_id()`, `is_approved_doctor()`, `customer_can_view_patient()` (모두 `set search_path = ''`)
-- **익명 조회:** `search_patient_public` RPC 함수 (blanket `using(true)` 절대 사용 금지)
+- **헬퍼 함수:** `get_my_role()`, `is_active_staff()`, `is_admin()` (모두 `security definer`, `set search_path = ''`)
+- **프로필 보호 트리거:** `guard_profile_changes` BEFORE UPDATE 트리거 — 비관리자가 `role`, `is_admin`, `is_active` 컬럼을 변경하려 하면 기존 값으로 되돌린다
 - **XSS:** `escapeHtml()` 전역 적용, `safeColor()` CSS 인젝션 방지
 - **CSP:** vercel.json HTTP 헤더 + index.html meta 태그 (frame-ancestors는 HTTP만)
 - **감사 로그:** `logAudit()` 모든 CRUD 작업에 호출
-- **회원가입 트리거:** `handle_new_user()`에서 role을 'customer'로 하드코딩 (클라이언트 메타데이터 무시)
+- **회원가입 트리거:** `handle_new_user()`에서 클라이언트 메타데이터의 role(doctor/nurse)을 허용하되 그 외 값은 nurse로 강제; 최초 가입 계정은 `is_admin = true` 자동 설정
 
 ## 개발 주의사항
 
@@ -132,7 +123,6 @@ src/
 - **innerHTML에 DB 데이터 삽입 시** 반드시 `escapeHtml()` 적용
 - **fetchPatientFull:** measurements + treatments를 `Promise.all`로 병렬 조회
 - **캐시 무효화:** 환자 데이터 변경 후 반드시 `invalidatePatient(id)` 호출
-- **안과 이름 변경 시** profiles.clinic_name도 함께 업데이트 (`updateClinic`에 구현됨)
 - **치료 종류 이름 변경 시** 기존 treatments 레코드도 함께 업데이트 (`updateTreatmentType`에 구현됨)
 - **키보드 리스너:** module-level `currentKeyboardHandler`로 이전 핸들러 제거 후 등록 (누수 방지)
 - **Tailwind CSS 4:** `@import "tailwindcss"` 사용, `@import url(...)` 폰트는 index.html `<link>`로
