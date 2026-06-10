@@ -111,7 +111,7 @@ export async function renderDoctorScreen(container) {
   bindDoctorEvents(container, user, sidebarPatients, selectedPatient);
 
   if (selectedPatient) {
-    initGrowthChart('growthChart', selectedPatient);
+    initGrowthChart('growthChart', selectedPatient, getState().projectionMode || 'trend');
     initProgressChart(selectedPatient, getState().currentChartType || 'AL');
   }
 
@@ -261,7 +261,7 @@ function renderPatientContent(patient, patients) {
             이미지 저장
           </button>
         </div>
-        ${renderGrowthChart('growthChart', patient)}
+        ${renderGrowthChart('growthChart', patient, getState().projectionMode || 'trend')}
       </div>
       <div class="bg-white rounded-2xl border border-slate-200 p-5">
         <h3 class="text-sm font-semibold text-slate-800 mb-4">진행 추이</h3>
