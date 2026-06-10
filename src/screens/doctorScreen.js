@@ -35,7 +35,7 @@ export async function renderDoctorScreen(container) {
   // Show loading state on first render
   if (!isLoadingPatients) {
     isLoadingPatients = true;
-    const nav = renderNavbar({ title: '근시관리 트래커', subtitle: user.clinicName, user });
+    const nav = renderNavbar({ title: '근시관리 트래커', subtitle: '', user });
     container.innerHTML = `
       ${nav.html}
       <div class="flex">
@@ -53,14 +53,14 @@ export async function renderDoctorScreen(container) {
 
   if (isSearching) {
     [sidebarPatients, treatmentTypes] = await Promise.all([
-      searchPatientsLight(currentSearchQuery, user.clinicId),
+      searchPatientsLight(currentSearchQuery),
       getTreatmentTypes(),
     ]);
   } else {
     [sidebarPatients, treatmentTypes, totalCount] = await Promise.all([
-      getRecentPatients(user.clinicId, 10),
+      getRecentPatients(undefined, 10),
       getTreatmentTypes(),
-      getPatientCount(user.clinicId),
+      getPatientCount(),
     ]);
   }
   cachedTreatmentTypes = treatmentTypes;
@@ -76,12 +76,12 @@ export async function renderDoctorScreen(container) {
 
   const [notes, overdue] = await Promise.all([
     selectedPatient ? getNotes(selectedPatient.id) : Promise.resolve([]),
-    getOverduePatients(user.clinicId).catch(() => []),
+    getOverduePatients().catch(() => []),
   ]);
   currentNotes = notes;
   const overduePatients = overdue;
 
-  const nav = renderNavbar({ title: '근시관리 트래커', subtitle: user.clinicName, user });
+  const nav = renderNavbar({ title: '근시관리 트래커', subtitle: '', user });
   const sidebar = renderSidebar(sidebarPatients, selectedPatient?.id, { searchQuery: currentSearchQuery, isSearching, totalCount });
 
   const overdueAlert = overduePatients.length > 0 ? `
@@ -601,11 +601,11 @@ function bindDoctorEvents(container, user, patients, selectedPatient) {
     exportAllBtn.addEventListener('click', async () => {
       exportAllBtn.textContent = '내보내는 중...';
       exportAllBtn.disabled = true;
-      const csv = await exportClinicData(user.clinicId);
+      const csv = await exportClinicData();
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
-      link.download = `${user.clinicName || 'clinic'}_전체데이터.csv`;
+      link.download = `전체데이터.csv`;
       link.click();
       exportAllBtn.textContent = '전체 내보내기';
       exportAllBtn.disabled = false;
