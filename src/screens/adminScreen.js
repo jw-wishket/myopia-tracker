@@ -1,8 +1,9 @@
 import { renderNavbar } from '../components/navbar.js';
-import { getState } from '../state.js';
+import { getState, setState } from '../state.js';
 import {
   getStats, getUsers, setUserAdmin, setUserActive,
   getTreatmentTypes, addTreatmentType, deleteTreatmentType,
+  getSetting, setSetting,
 } from '../data/dataService.js';
 import { openModal } from '../components/modal.js';
 import { escapeHtml } from '../utils.js';
@@ -17,8 +18,8 @@ export async function renderAdminScreen(container) {
   const user = getState().currentUser;
   if (!user) return;
 
-  const [stats, users, treatmentTypes] = await Promise.all([
-    getStats(), getUsers(), getTreatmentTypes(),
+  const [stats, users, treatmentTypes, projectionMode] = await Promise.all([
+    getStats(), getUsers(), getTreatmentTypes(), getSetting('projection_mode'),
   ]);
 
   const nav = renderNavbar({ title: '근시관리 트래커', subtitle: '관리자', user, showBack: true, backTarget: 'doctor' });
@@ -34,10 +35,13 @@ export async function renderAdminScreen(container) {
       <div class="flex gap-2 border-b border-slate-200 overflow-x-auto">
         ${tabBtn('users', '사용자')}
         ${tabBtn('treatments', '치료종류')}
+        ${tabBtn('settings', '예측 설정')}
       </div>
 
       <div id="adminTabContent">
-        ${activeTab === 'treatments' ? renderTreatmentTypesTab(treatmentTypes) : renderUsers(users, user)}
+        ${activeTab === 'treatments' ? renderTreatmentTypesTab(treatmentTypes) :
+          activeTab === 'settings' ? renderSettings(projectionMode || 'trend') :
+          renderUsers(users, user)}
       </div>
     </main>
   `;
@@ -102,6 +106,14 @@ export async function renderAdminScreen(container) {
       await renderAdminScreen(container);
     });
   });
+
+  container.querySelectorAll('input[name="projMode"]').forEach(radio => {
+    radio.addEventListener('change', async () => {
+      const ok = await setSetting('projection_mode', radio.value);
+      if (ok) setState({ projectionMode: radio.value });
+      await renderAdminScreen(container);
+    });
+  });
 }
 
 function statCard(label, value) {
@@ -163,6 +175,26 @@ function renderUsers(users, me) {
       </table>
     </div>
   `;
+}
+
+function renderSettings(mode) {
+  const opt = (val, title, desc) => `
+    <label class="flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-colors ${mode === val ? 'border-primary-500 bg-primary-50' : 'border-slate-200 hover:border-slate-300'}">
+      <input type="radio" name="projMode" value="${val}" class="mt-1" ${mode === val ? 'checked' : ''}>
+      <div>
+        <div class="text-sm font-medium text-slate-800">${title}</div>
+        <div class="text-xs text-slate-500 mt-0.5">${desc}</div>
+      </div>
+    </label>`;
+  return `
+    <div class="bg-white rounded-xl border border-slate-200 p-5 max-w-xl">
+      <h3 class="text-sm font-semibold text-slate-800 mb-1">성장 차트 18세 예측 방식</h3>
+      <p class="text-xs text-slate-500 mb-4">모든 사용자의 차트에 적용됩니다. 변경 시 대시보드에 즉시 반영됩니다.</p>
+      <div class="space-y-3">
+        ${opt('trend', '추세 연장', '환자 측정점의 기울기(최소제곱 회귀)를 18세까지 직선으로 연장합니다.')}
+        ${opt('percentile', '백분위 추종', '현재 백분위 곡선을 18세까지 그대로 따라갑니다.')}
+      </div>
+    </div>`;
 }
 
 function renderTreatmentTypesTab(types) {
