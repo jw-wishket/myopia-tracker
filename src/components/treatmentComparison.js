@@ -4,6 +4,7 @@
  */
 
 import { TREATMENT_COLORS } from '../constants.js';
+import { escapeHtml } from '../utils.js';
 
 function calcRate(records) {
   if (!records || records.length < 2) return null;
@@ -67,63 +68,67 @@ export function renderTreatmentComparison(patient) {
     `;
   }
 
+  // 한쪽 구간이 부족해도 있는 쪽 속도는 보여준다 (전부 숨기면 정보가 없음)
+  const rateCol = (label, rate, hint) => `
+    <div class="space-y-1">
+      <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">${label}</div>
+      ${rate ? `
+        <div class="font-mono">
+          <span class="text-od">OD</span> ${Math.abs(rate.odRate).toFixed(2)}mm/y
+          <span class="mx-1 text-slate-300">|</span>
+          <span class="text-os">OS</span> ${Math.abs(rate.osRate).toFixed(2)}mm/y
+        </div>
+        <div class="text-xs text-slate-400">${rate.count}회 측정</div>
+      ` : `
+        <div class="text-sm text-slate-400">측정 데이터 부족</div>
+        <div class="text-xs text-slate-300">${hint}</div>
+      `}
+    </div>
+  `;
+
   return `
     <div class="space-y-4">
       ${comparisons.map(c => {
         const color = TREATMENT_COLORS[c.treatment.type] || '#6b7280';
         const hasComparison = c.beforeRate && c.afterRate;
 
-        let odPctChange = null;
-        let osPctChange = null;
+        let changeCol;
         if (hasComparison) {
-          odPctChange = formatPctChange(c.beforeRate.odRate, c.afterRate.odRate);
-          osPctChange = formatPctChange(c.beforeRate.osRate, c.afterRate.osRate);
+          const odPctChange = formatPctChange(c.beforeRate.odRate, c.afterRate.odRate);
+          const osPctChange = formatPctChange(c.beforeRate.osRate, c.afterRate.osRate);
+          changeCol = `
+            <div class="space-y-1">
+              <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">변화</div>
+              <div class="font-mono">
+                <span class="text-od">OD</span> <span class="${odPctChange.cls} font-semibold">${odPctChange.text}</span>
+                <span class="mx-1 text-slate-300">|</span>
+                <span class="text-os">OS</span> <span class="${osPctChange.cls} font-semibold">${osPctChange.text}</span>
+              </div>
+              <div class="text-xs text-slate-400">${odPctChange.cls.includes('emerald') || osPctChange.cls.includes('emerald') ? '감소 = 효과 있음' : '변화 없음'}</div>
+            </div>
+          `;
+        } else {
+          changeCol = `
+            <div class="space-y-1">
+              <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">변화</div>
+              <div class="text-sm text-slate-400">전후 비교 불가</div>
+            </div>
+          `;
         }
 
         return `
           <div class="rounded-xl border border-slate-200 overflow-hidden">
             <div class="px-4 py-2.5 flex items-center gap-2" style="background-color: ${color}10; border-left: 3px solid ${color}">
               <span class="inline-block w-2.5 h-2.5 rounded-full" style="background-color: ${color}"></span>
-              <span class="text-sm font-semibold text-slate-700">${c.treatment.type}</span>
+              <span class="text-sm font-semibold text-slate-700">${escapeHtml(c.treatment.type)}</span>
               <span class="text-xs text-slate-400 ml-auto">${c.treatment.date} 시작</span>
             </div>
             <div class="px-4 py-3">
-              ${!hasComparison ? `
-                <div class="text-sm text-slate-400">
-                  ${!c.beforeRate ? '치료 전 측정 데이터 부족' : ''}
-                  ${!c.afterRate ? '치료 후 측정 데이터 부족' : ''}
-                </div>
-              ` : `
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-                  <div class="space-y-1">
-                    <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">치료 전</div>
-                    <div class="font-mono">
-                      <span class="text-od">OD</span> ${Math.abs(c.beforeRate.odRate).toFixed(2)}mm/y
-                      <span class="mx-1 text-slate-300">|</span>
-                      <span class="text-os">OS</span> ${Math.abs(c.beforeRate.osRate).toFixed(2)}mm/y
-                    </div>
-                    <div class="text-xs text-slate-400">${c.beforeRate.count}회 측정</div>
-                  </div>
-                  <div class="space-y-1">
-                    <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">치료 후</div>
-                    <div class="font-mono">
-                      <span class="text-od">OD</span> ${Math.abs(c.afterRate.odRate).toFixed(2)}mm/y
-                      <span class="mx-1 text-slate-300">|</span>
-                      <span class="text-os">OS</span> ${Math.abs(c.afterRate.osRate).toFixed(2)}mm/y
-                    </div>
-                    <div class="text-xs text-slate-400">${c.afterRate.count}회 측정</div>
-                  </div>
-                  <div class="space-y-1">
-                    <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">변화</div>
-                    <div class="font-mono">
-                      <span class="text-od">OD</span> <span class="${odPctChange.cls} font-semibold">${odPctChange.text}</span>
-                      <span class="mx-1 text-slate-300">|</span>
-                      <span class="text-os">OS</span> <span class="${osPctChange.cls} font-semibold">${osPctChange.text}</span>
-                    </div>
-                    <div class="text-xs text-slate-400">${odPctChange.cls.includes('emerald') || osPctChange.cls.includes('emerald') ? '감소 = 효과 있음' : '변화 없음'}</div>
-                  </div>
-                </div>
-              `}
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                ${rateCol('치료 전', c.beforeRate, '치료 시작 전 측정 2회 이상 필요')}
+                ${rateCol('치료 후', c.afterRate, '치료 시작 후 측정 2회 이상 필요')}
+                ${changeCol}
+              </div>
             </div>
           </div>
         `;
