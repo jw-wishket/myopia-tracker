@@ -13,7 +13,7 @@ import { renderRateTable } from '../components/rateTable.js';
 import { getState, setState } from '../state.js';
 import { getPatientById, addTreatment, removeTreatment, updateTreatment, deletePatient, deleteRecord, addNote, deleteNote, exportClinicData, getOverduePatients, getTreatmentTypes, getRecentPatients, searchPatientsLight, getPatientCount, getNotes, addTreatmentType } from '../data/dataService.js';
 import { renderPatientNotes } from '../components/patientNotes.js';
-import { todayStr, progressLabel, escapeHtml } from '../utils.js';
+import { todayStr, progressLabel, escapeHtml, pinSelectedToList } from '../utils.js';
 import { showSyncStatus } from '../components/syncStatus.js';
 import { openPrintReport } from '../components/printReport.js';
 import { openAddPatientModal, openEditPatientModal, openAddMeasurementModal, openImportCsvModal, openSettingsModal, openShortcutHelpModal } from './doctor/modals.js';
@@ -78,6 +78,11 @@ export async function renderDoctorScreen(container) {
       ? sidebarPatients[0]
       : await getPatientById(sidebarPatients[0].id);
     setState({ currentPatient: selectedPatient });
+  }
+
+  // 알림·검색으로 연 환자가 최근 목록에 없으면 사이드바 맨 위에 고정
+  if (!isSearching) {
+    sidebarPatients = pinSelectedToList(sidebarPatients, selectedPatient);
   }
 
   const [notes, overdue] = await Promise.all([

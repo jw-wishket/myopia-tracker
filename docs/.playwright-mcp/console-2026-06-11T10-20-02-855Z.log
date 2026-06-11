@@ -1,0 +1,6 @@
+[  445256ms] [VERBOSE] [DOM] Password field is not contained in a form: (More info: https://goo.gl/9p2vKq) %o @ https://myopia-tracker.vercel.app/#doctor:0
+[  445256ms] [VERBOSE] [DOM] Password field is not contained in a form: (More info: https://goo.gl/9p2vKq) %o @ https://myopia-tracker.vercel.app/#doctor:0
+[  453256ms] [ERROR] Failed to load resource: the server responded with a status of 403 () @ https://rwqggjbozibuyajdluqn.supabase.co/auth/v1/logout?scope=global:0
+[  453411ms] [VERBOSE] [DOM] Password field is not contained in a form: (More info: https://goo.gl/9p2vKq) %o @ https://myopia-tracker.vercel.app/#login:0
+[  453411ms] [VERBOSE] [DOM] Password field is not contained in a form: (More info: https://goo.gl/9p2vKq) %o @ https://myopia-tracker.vercel.app/#login:0
+[  453411ms] [VERBOSE] [DOM] Password field is not contained in a form: (More info: https://goo.gl/9p2vKq) %o @ https://myopia-tracker.vercel.app/#login:0

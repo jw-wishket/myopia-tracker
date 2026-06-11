@@ -1,5 +1,21 @@
 import { describe, it, expect } from 'vitest';
-import { classifyRate, predictionLabelAdjusts } from './utils.js';
+import { classifyRate, predictionLabelAdjusts, pinSelectedToList } from './utils.js';
+
+describe('pinSelectedToList', () => {
+  const list = [{ id: 'a' }, { id: 'b' }];
+
+  it('선택 환자가 목록에 없으면 맨 위에 고정한다', () => {
+    expect(pinSelectedToList(list, { id: 'c' })).toEqual([{ id: 'c' }, { id: 'a' }, { id: 'b' }]);
+  });
+
+  it('이미 목록에 있으면 그대로 반환한다', () => {
+    expect(pinSelectedToList(list, { id: 'b' })).toBe(list);
+  });
+
+  it('선택 환자가 없으면 그대로 반환한다', () => {
+    expect(pinSelectedToList(list, null)).toBe(list);
+  });
+});
 
 describe('predictionLabelAdjusts', () => {
   it('양안 예측값이 충분히 떨어져 있으면 둘 다 기본 오프셋(위쪽)', () => {

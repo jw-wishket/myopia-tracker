@@ -42,6 +42,13 @@ export function hideLoading() {
   document.getElementById('loadingOverlay')?.classList.add('hidden');
 }
 
+// 사이드바는 최근 측정 N명만 보여주므로, 알림·검색으로 연 환자가 목록에
+// 없으면 맨 위에 고정해 "선택됐는데 목록에 없는" 혼란을 막는다.
+export function pinSelectedToList(list, selected) {
+  if (!selected || list.some(p => p.id === selected.id)) return list;
+  return [selected, ...list];
+}
+
 // 성장 차트 18세 예측 라벨의 yAdjust 계산. 양안 예측값이 가까우면
 // 같은 자리에 겹쳐 그려지므로 큰 쪽은 위, 작은 쪽은 아래로 분리한다.
 // threshold 0.35mm ≈ 라벨 높이(y축 1mm ≈ 34px, 라벨 ~12px)
