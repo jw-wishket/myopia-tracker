@@ -1,7 +1,7 @@
 import { formatDate, calcAge } from '../utils.js';
 import { OD_COLOR, OS_COLOR } from '../constants.js';
 
-export function openPrintReport(patient) {
+export function openPrintReport(patient, chartImage) {
   const age = calcAge(patient.birthDate, new Date());
   const genderLabel = patient.gender === 'male' ? '남' : '여';
   const lastRecord = patient.records?.length > 0 ? patient.records[patient.records.length - 1] : null;
@@ -41,6 +41,8 @@ export function openPrintReport(patient) {
         .treatment-tag { padding: 3px 10px; border-radius: 12px; font-size: 10px; border: 1px solid #e2e8f0; }
         .footer { margin-top: 30px; text-align: center; font-size: 10px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 12px; }
         .print-date { text-align: right; font-size: 10px; color: #94a3b8; margin-bottom: 8px; }
+        .chart-section { page-break-inside: avoid; }
+        .growth-chart { width: 100%; max-width: 780px; height: auto; display: block; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; }
         @media print { body { padding: 20px; } }
       </style>
     </head>
@@ -76,6 +78,13 @@ export function openPrintReport(patient) {
             <div class="stat-row"><span class="stat-label">백분위</span><span class="stat-value">${lastRecord.osPct ?? '-'}%ile</span></div>
           </div>
         </div>
+      </div>
+      ` : ''}
+
+      ${chartImage ? `
+      <div class="section chart-section">
+        <h2>성장 차트</h2>
+        <img class="growth-chart" src="${chartImage}" alt="성장 차트">
       </div>
       ` : ''}
 
@@ -120,9 +129,9 @@ export function openPrintReport(patient) {
     </html>
   `;
 
-  const printWindow = window.open('', '_blank');
-  printWindow.document.write(reportHtml);
-  printWindow.document.close();
-  printWindow.focus();
-  setTimeout(() => printWindow.print(), 500);
+  // 리포트를 새 탭으로 열기만 한다(자동 인쇄 대화상자 띄우지 않음). 필요 시 사용자가 직접 인쇄.
+  const reportWindow = window.open('', '_blank');
+  reportWindow.document.write(reportHtml);
+  reportWindow.document.close();
+  reportWindow.focus();
 }

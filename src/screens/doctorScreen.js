@@ -28,6 +28,12 @@ let cachedTreatmentTypes = [];
 let isLoadingPatients = false;
 let currentKeyboardHandler = null;
 
+// 리포트에 넣을 성장 차트 합성 이미지(제목·범례·위험도 게이지 포함) dataURL. 차트 없으면 null.
+function reportChartImage() {
+  const img = renderGrowthChartImage('growthChart');
+  return img ? img.toDataURL('image/png') : null;
+}
+
 export async function renderDoctorScreen(container) {
   const user = getState().currentUser;
   if (!user) return;
@@ -148,7 +154,7 @@ export async function renderDoctorScreen(container) {
         break;
       case 'r': // 리포트
         e.preventDefault();
-        if (patient) openPrintReport(patient);
+        if (patient) openPrintReport(patient, reportChartImage());
         break;
       case '?': // 단축키 도움말
         e.preventDefault();
@@ -490,7 +496,7 @@ function bindDoctorEvents(container, user, patients, selectedPatient) {
   // Print report
   const printBtn = container.querySelector('#printReportBtn');
   if (printBtn && selectedPatient) {
-    printBtn.addEventListener('click', () => openPrintReport(selectedPatient));
+    printBtn.addEventListener('click', () => openPrintReport(selectedPatient, reportChartImage()));
   }
 
   // Delete patient
