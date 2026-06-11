@@ -64,7 +64,7 @@ export async function renderDoctorScreen(container) {
     ]);
   } else {
     [sidebarPatients, treatmentTypes, totalCount] = await Promise.all([
-      getRecentPatients(undefined, 10),
+      getRecentPatients(undefined, 50), // 사이드바는 스크롤되므로 사실상 전체 표시 (50명 초과 시 검색 사용)
       getTreatmentTypes(),
       getPatientCount(),
     ]);
