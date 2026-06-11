@@ -87,7 +87,10 @@ export async function renderDoctorScreen(container) {
   currentNotes = notes;
   const overduePatients = overdue;
 
-  const nav = renderNavbar({ title: '근시관리 트래커', subtitle: '', user });
+  const nav = renderNavbar({
+    title: '근시관리 트래커', subtitle: '', user,
+    onProfile: () => openSettingsModal(container, () => renderDoctorScreen(container)),
+  });
   const sidebar = renderSidebar(sidebarPatients, selectedPatient?.id, { searchQuery: currentSearchQuery, isSearching, totalCount });
 
   const overdueAlert = overduePatients.length > 0 ? `

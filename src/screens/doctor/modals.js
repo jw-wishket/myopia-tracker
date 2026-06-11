@@ -1,5 +1,5 @@
 import { openModal } from '../../components/modal.js';
-import { addPatient, updatePatient, addMeasurement, getPatientById, importMeasurements, logout, resetData, changePassword, addTreatmentType } from '../../data/dataService.js';
+import { addPatient, updatePatient, addMeasurement, getPatientById, importMeasurements, logout, resetData, changePassword, updateProfile, addTreatmentType } from '../../data/dataService.js';
 import { setState, getState } from '../../state.js';
 import { todayStr, calcAge, escapeHtml } from '../../utils.js';
 import { showSyncStatus } from '../../components/syncStatus.js';
@@ -328,6 +328,15 @@ export function openSettingsModal(container, onComplete) {
   const modal = openModal('설정', `
     <div class="space-y-4">
       <div class="p-4 bg-slate-50 rounded-xl">
+        <h4 class="text-sm font-semibold text-slate-700 mb-1">내 프로필</h4>
+        <p class="text-xs text-slate-500 mb-3">화면 상단에 표시되는 이름을 수정합니다.</p>
+        <div class="space-y-2">
+          <input type="text" id="settingsName" value="${escapeHtml(getState().currentUser?.name || '')}" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-primary-400" placeholder="이름">
+          <div id="settingsNameMsg" class="text-xs hidden"></div>
+          <button id="settingsSaveNameBtn" class="w-full py-2.5 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 transition-colors">이름 저장</button>
+        </div>
+      </div>
+      <div class="p-4 bg-slate-50 rounded-xl">
         <h4 class="text-sm font-semibold text-slate-700 mb-1">비밀번호 변경</h4>
         <p class="text-xs text-slate-500 mb-3">새 비밀번호를 입력하세요 (8자 이상).</p>
         <div class="space-y-2">
@@ -352,6 +361,36 @@ export function openSettingsModal(container, onComplete) {
   `);
 
   modal.element.querySelector('#settingsCloseBtn').addEventListener('click', modal.close);
+
+  // Name change
+  modal.element.querySelector('#settingsSaveNameBtn').addEventListener('click', async () => {
+    const name = modal.element.querySelector('#settingsName').value.trim();
+    const msgEl = modal.element.querySelector('#settingsNameMsg');
+    msgEl.classList.remove('hidden', 'text-red-500', 'text-emerald-600');
+
+    if (!name) {
+      msgEl.textContent = '이름을 입력해주세요.';
+      msgEl.classList.add('text-red-500');
+      return;
+    }
+
+    const btn = modal.element.querySelector('#settingsSaveNameBtn');
+    btn.disabled = true;
+    btn.textContent = '저장 중...';
+
+    const ok = await updateProfile({ name });
+    if (ok) {
+      setState({ currentUser: { ...getState().currentUser, name } });
+      msgEl.textContent = '이름이 변경되었습니다.';
+      msgEl.classList.add('text-emerald-600');
+      if (onComplete) onComplete(); // 상단바 이름 갱신
+    } else {
+      msgEl.textContent = '이름 변경에 실패했습니다.';
+      msgEl.classList.add('text-red-500');
+    }
+    btn.disabled = false;
+    btn.textContent = '이름 저장';
+  });
 
   // Password change
   modal.element.querySelector('#settingsChangePwBtn').addEventListener('click', async () => {

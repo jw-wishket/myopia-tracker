@@ -1,5 +1,22 @@
 import { describe, it, expect } from 'vitest';
-import { classifyRate } from './utils.js';
+import { classifyRate, predictionLabelAdjusts } from './utils.js';
+
+describe('predictionLabelAdjusts', () => {
+  it('양안 예측값이 충분히 떨어져 있으면 둘 다 기본 오프셋(위쪽)', () => {
+    expect(predictionLabelAdjusts(24.0, 26.0)).toEqual({ od: -8, os: -8 });
+  });
+
+  it('양안 예측값이 가까우면 큰 쪽은 위, 작은 쪽은 아래로 분리 — 라벨 겹침 방지', () => {
+    // 이서윤 케이스: OD 26.19 / OS 26.13 → 같은 위치에 겹쳐 보이던 버그
+    expect(predictionLabelAdjusts(26.19, 26.13)).toEqual({ od: -10, os: 10 });
+    expect(predictionLabelAdjusts(26.13, 26.19)).toEqual({ od: 10, os: -10 });
+  });
+
+  it('한쪽 눈 데이터가 없으면 기본 오프셋', () => {
+    expect(predictionLabelAdjusts(26.19, null)).toEqual({ od: -8, os: -8 });
+    expect(predictionLabelAdjusts(null, 26.13)).toEqual({ od: -8, os: -8 });
+  });
+});
 
 describe('classifyRate', () => {
   it('표시 정밀도(소수 2자리)로 반올림한 뒤 분류한다 — 0.30으로 표시되는 값은 보통', () => {

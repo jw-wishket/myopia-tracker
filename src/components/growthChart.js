@@ -7,7 +7,7 @@ import {
 } from 'chart.js';
 import annotationPlugin from 'chartjs-plugin-annotation';
 import { OD_COLOR, OS_COLOR, TREATMENT_COLORS, PERCENTILE_GRID } from '../constants.js';
-import { escapeHtml } from '../utils.js';
+import { escapeHtml, predictionLabelAdjusts } from '../utils.js';
 import { computeChartModel } from '../myopiaModel.js';
 import { renderRefractionPanel, initRefractionPanel, destroyRefractionPanel } from './refractionPanel.js';
 import { renderRiskGauge, initRiskGauge } from './riskGauge.js';
@@ -118,13 +118,17 @@ export function initGrowthChart(canvasId, patient, projectionMode = 'trend') {
       };
     }
   });
-  // 예측 안축장 라벨 (18세 지점)
-  for (const [eye, color] of [[model.od, OD_COLOR], [model.os, OS_COLOR]]) {
+  // 예측 안축장 라벨 (18세 지점) — 양안 값이 가까우면 위/아래로 분리해 겹침 방지
+  const labelAdjusts = predictionLabelAdjusts(
+    model.od?.projection.predictedAL ?? null,
+    model.os?.projection.predictedAL ?? null,
+  );
+  for (const [eye, color, adjust] of [[model.od, OD_COLOR, labelAdjusts.od], [model.os, OS_COLOR, labelAdjusts.os]]) {
     if (!eye) continue;
     annotations[`pred_${color}`] = {
       type: 'label', xValue: 18, yValue: eye.projection.predictedAL,
       content: `${eye.projection.predictedAL.toFixed(2)}mm`,
-      color, font: { size: 10, weight: 'bold' }, position: 'end', xAdjust: -4, yAdjust: -8,
+      color, font: { size: 10, weight: 'bold' }, position: 'end', xAdjust: -4, yAdjust: adjust,
     };
   }
 

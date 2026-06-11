@@ -42,6 +42,15 @@ export function hideLoading() {
   document.getElementById('loadingOverlay')?.classList.add('hidden');
 }
 
+// 성장 차트 18세 예측 라벨의 yAdjust 계산. 양안 예측값이 가까우면
+// 같은 자리에 겹쳐 그려지므로 큰 쪽은 위, 작은 쪽은 아래로 분리한다.
+// threshold 0.35mm ≈ 라벨 높이(y축 1mm ≈ 34px, 라벨 ~12px)
+export function predictionLabelAdjusts(odAL, osAL, threshold = 0.35) {
+  const base = { od: -8, os: -8 };
+  if (odAL == null || osAL == null || Math.abs(odAL - osAL) >= threshold) return base;
+  return odAL >= osAL ? { od: -10, os: 10 } : { od: 10, os: -10 };
+}
+
 // 안축장 진행속도 분류. 표시 정밀도(소수 2자리)로 반올림한 뒤 비교해야
 // 화면에 0.30으로 표시되는 값이 "빠름(0.3 초과)"으로 분류되는 모순이 없다.
 export function classifyRate(rate) {
