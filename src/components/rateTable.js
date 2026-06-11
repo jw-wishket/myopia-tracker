@@ -1,3 +1,5 @@
+import { classifyRate } from '../utils.js';
+
 export function renderRateTable(records) {
   if (!records || records.length < 2) {
     return '<div class="text-center py-6 text-slate-400 text-sm">2회 이상 측정 기록이 필요합니다</div>';
@@ -18,16 +20,8 @@ export function renderRateTable(records) {
     const odRate = (odChange / months * 12);
     const osRate = (osChange / months * 12);
 
-    // Rate classification
-    function getRateClass(rate) {
-      if (rate <= 0.1) return { label: '안정', cls: 'text-emerald-600 bg-emerald-50' };
-      if (rate <= 0.2) return { label: '느림', cls: 'text-blue-600 bg-blue-50' };
-      if (rate <= 0.3) return { label: '보통', cls: 'text-amber-600 bg-amber-50' };
-      return { label: '빠름', cls: 'text-red-600 bg-red-50' };
-    }
-
-    const odClass = getRateClass(Math.abs(odRate));
-    const osClass = getRateClass(Math.abs(osRate));
+    const odClass = classifyRate(odRate);
+    const osClass = classifyRate(osRate);
 
     rows.push(`
       <tr class="border-b border-slate-100 hover:bg-slate-50">

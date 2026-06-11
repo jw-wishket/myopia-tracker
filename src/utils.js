@@ -42,6 +42,16 @@ export function hideLoading() {
   document.getElementById('loadingOverlay')?.classList.add('hidden');
 }
 
+// 안축장 진행속도 분류. 표시 정밀도(소수 2자리)로 반올림한 뒤 비교해야
+// 화면에 0.30으로 표시되는 값이 "빠름(0.3 초과)"으로 분류되는 모순이 없다.
+export function classifyRate(rate) {
+  const r = Number(Math.abs(rate).toFixed(2));
+  if (r <= 0.1) return { label: '안정', cls: 'text-emerald-600 bg-emerald-50', dotCls: 'bg-emerald-500' };
+  if (r <= 0.2) return { label: '느림', cls: 'text-blue-600 bg-blue-50', dotCls: 'bg-blue-500' };
+  if (r <= 0.3) return { label: '보통', cls: 'text-amber-600 bg-amber-50', dotCls: 'bg-amber-500' };
+  return { label: '빠름', cls: 'text-red-600 bg-red-50', dotCls: 'bg-red-500' };
+}
+
 export function progressLabel(records) {
   if (!records || records.length < 2) return { text: '데이터 부족', cls: 'text-slate-400' };
   const last = records[records.length - 1];

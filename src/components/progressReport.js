@@ -2,6 +2,7 @@
  * Progress Rate Report Component
  * Shows period-based AL progression rates with classification
  */
+import { classifyRate } from '../utils.js';
 
 function calcRateForPeriod(records, months) {
   if (!records || records.length < 2) return null;
@@ -59,13 +60,6 @@ function calcRateForPeriod(records, months) {
       days: Math.round(daysDiff),
     };
   }
-}
-
-function classifyRate(rate) {
-  if (rate <= 0.1) return { label: '안정', cls: 'text-emerald-600 bg-emerald-50', dotCls: 'bg-emerald-500' };
-  if (rate <= 0.2) return { label: '느림', cls: 'text-blue-600 bg-blue-50', dotCls: 'bg-blue-500' };
-  if (rate <= 0.3) return { label: '보통', cls: 'text-amber-600 bg-amber-50', dotCls: 'bg-amber-500' };
-  return { label: '빠름', cls: 'text-red-600 bg-red-50', dotCls: 'bg-red-500' };
 }
 
 function renderRateRow(label, result) {
