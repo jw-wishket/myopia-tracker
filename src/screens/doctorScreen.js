@@ -282,15 +282,14 @@ function renderPatientContent(patient, patients) {
         ${renderProgressChart()}
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <div class="bg-white rounded-2xl border border-slate-200 p-5">
-          <h3 class="text-sm font-semibold text-slate-800 mb-4">진행 속도 분석</h3>
-          ${renderProgressReport(patient)}
-        </div>
-        <div class="bg-white rounded-2xl border border-slate-200 p-5">
-          <h3 class="text-sm font-semibold text-slate-800 mb-4">치료 효과 분석</h3>
-          ${renderTreatmentComparison(patient)}
-        </div>
+      <div class="bg-white rounded-2xl border border-slate-200 p-5">
+        <h3 class="text-sm font-semibold text-slate-800 mb-4">진행 속도 분석</h3>
+        ${renderProgressReport(patient)}
+      </div>
+
+      <div class="bg-white rounded-2xl border border-slate-200 p-5">
+        <h3 class="text-sm font-semibold text-slate-800 mb-4">치료 효과 분석</h3>
+        ${renderTreatmentComparison(patient)}
       </div>
 
       <div class="bg-white rounded-2xl border border-slate-200 p-5">

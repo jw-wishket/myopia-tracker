@@ -1,4 +1,4 @@
-import { formatDate, calcAge } from '../utils.js';
+import { formatDate, calcAge, escapeHtml } from '../utils.js';
 import { OD_COLOR, OS_COLOR } from '../constants.js';
 
 export function openPrintReport(patient, chartImage) {
@@ -11,7 +11,7 @@ export function openPrintReport(patient, chartImage) {
     <html lang="ko">
     <head>
       <meta charset="UTF-8">
-      <title>${patient.name} - 근시관리 리포트</title>
+      <title>${escapeHtml(patient.name)} - 근시관리 리포트</title>
       <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Noto Sans KR', sans-serif; padding: 40px; color: #1e293b; font-size: 12px; line-height: 1.6; }
@@ -54,11 +54,11 @@ export function openPrintReport(patient, chartImage) {
       </div>
 
       <div class="patient-info">
-        <div><div class="label">환자명</div><div class="value">${patient.name}</div></div>
+        <div><div class="label">환자명</div><div class="value">${escapeHtml(patient.name)}</div></div>
         <div><div class="label">생년월일</div><div class="value">${patient.birthDate}</div></div>
         <div><div class="label">성별</div><div class="value">${genderLabel}</div></div>
         <div><div class="label">나이</div><div class="value">${age}세</div></div>
-        ${patient.customRef ? `<div><div class="label">관리번호</div><div class="value">${patient.customRef}</div></div>` : ''}
+        ${patient.customRef ? `<div><div class="label">관리번호</div><div class="value">${escapeHtml(patient.customRef)}</div></div>` : ''}
       </div>
 
       ${lastRecord ? `
@@ -92,7 +92,7 @@ export function openPrintReport(patient, chartImage) {
       <div class="section">
         <h2>치료 이력</h2>
         <div class="treatments">
-          ${patient.treatments.map(t => `<span class="treatment-tag">${t.type} (${formatDate(t.date)}${t.endDate ? ' ~ ' + formatDate(t.endDate) : ' ~ 진행중'})</span>`).join('')}
+          ${patient.treatments.map(t => `<span class="treatment-tag">${escapeHtml(t.type)} (${formatDate(t.date)}${t.endDate ? ' ~ ' + formatDate(t.endDate) : ' ~ 진행중'})</span>`).join('')}
         </div>
       </div>
       ` : ''}
@@ -129,9 +129,10 @@ export function openPrintReport(patient, chartImage) {
     </html>
   `;
 
-  // 리포트를 새 탭으로 열기만 한다(자동 인쇄 대화상자 띄우지 않음). 필요 시 사용자가 직접 인쇄.
   const reportWindow = window.open('', '_blank');
   reportWindow.document.write(reportHtml);
   reportWindow.document.close();
   reportWindow.focus();
+  // 차트 이미지(data URL) 렌더링 여유를 두고 인쇄 대화상자 자동 표시
+  setTimeout(() => reportWindow.print(), 500);
 }
