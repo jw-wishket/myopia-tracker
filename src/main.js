@@ -44,15 +44,15 @@ function adminGuard(renderFn) {
 registerRoute('doctor', authGuard(lazyRoute('doctor')));
 registerRoute('admin', adminGuard(lazyRoute('admin')));
 
-// Restore session
+// Restore session — 사용자 확인과 설정 조회를 병렬 실행 (순차 대비 1왕복 단축)
 (async () => {
-  const user = await getCurrentUser();
+  const [user, mode] = await Promise.all([
+    getCurrentUser(),
+    getSetting('projection_mode').catch(() => null), // 실패 시 기본 'trend' 유지
+  ]);
   if (user) {
     setState({ currentUser: user });
-    try {
-      const mode = await getSetting('projection_mode');
-      if (mode) setState({ projectionMode: mode });
-    } catch { /* 실패 시 기본 'trend' 유지 */ }
+    if (mode) setState({ projectionMode: mode });
     window.location.hash = routeForUser(user);
   }
   startRouter(document.getElementById('app'));

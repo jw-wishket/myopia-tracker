@@ -1,6 +1,6 @@
 import { supabase } from '../supabaseClient.js';
 import { calcAge, calcPct } from '../../utils.js';
-import { escapeLike, toPatientJS, fetchPatientFull, logAudit } from './helpers.js';
+import { escapeLike, toPatientJS, fetchPatientFull, logAudit, firstDistinctPatientIds, groupByPatientId } from './helpers.js';
 import { getCachedPatient, setCachedPatient, invalidatePatient } from '../patientCache.js';
 
 export async function getPatients() {
@@ -10,37 +10,42 @@ export async function getPatients() {
 }
 
 export async function getRecentPatients(_clinicId, limit = 10) {
+  // 전체 테이블이 아닌 최근 500행만 — 환자 limit명을 찾기에 충분하고 데이터 증가에도 비용 고정
   const { data: recentMeasurements } = await supabase
     .from('measurements')
     .select('patient_id, date')
-    .order('date', { ascending: false });
+    .order('date', { ascending: false })
+    .limit(500);
 
   if (!recentMeasurements || recentMeasurements.length === 0) {
     const { data } = await supabase.from('patients').select('*')
       .order('created_at', { ascending: false })
       .limit(limit);
     if (!data || data.length === 0) return [];
-    const fullPatients = await Promise.all(data.map(p => fetchPatientFull(p)));
-    for (const fp of fullPatients) setCachedPatient(fp.id, fp);
-    return fullPatients;
+    return fetchPatientsFullBatch(data);
   }
 
-  const seen = new Set();
-  const recentIds = [];
-  for (const m of recentMeasurements) {
-    if (!seen.has(m.patient_id)) {
-      seen.add(m.patient_id);
-      recentIds.push(m.patient_id);
-      if (recentIds.length >= limit) break;
-    }
-  }
+  const recentIds = firstDistinctPatientIds(recentMeasurements, limit);
 
   const { data } = await supabase.from('patients').select('*').in('id', recentIds);
   if (!data) return [];
   const patientMap = {};
   data.forEach(p => { patientMap[p.id] = p; });
   const orderedRows = recentIds.map(id => patientMap[id]).filter(Boolean);
-  const fullPatients = await Promise.all(orderedRows.map(p => fetchPatientFull(p)));
+  return fetchPatientsFullBatch(orderedRows);
+}
+
+// 환자별 2요청(측정+치료) 대신 in() 배치 2요청으로 전체를 가져온다
+async function fetchPatientsFullBatch(patientRows) {
+  const ids = patientRows.map(p => p.id);
+  const [{ data: measurements }, { data: treatments }] = await Promise.all([
+    supabase.from('measurements').select('*').in('patient_id', ids).order('date'),
+    supabase.from('treatments').select('*').in('patient_id', ids).order('date'),
+  ]);
+  const measByPatient = groupByPatientId(measurements);
+  const treatByPatient = groupByPatientId(treatments);
+  const fullPatients = patientRows.map(p =>
+    toPatientJS(p, measByPatient[p.id] || [], treatByPatient[p.id] || []));
   for (const fp of fullPatients) setCachedPatient(fp.id, fp);
   return fullPatients;
 }

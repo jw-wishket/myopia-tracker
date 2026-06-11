@@ -49,6 +49,29 @@ export function toProfileJS(p) {
   };
 }
 
+// 날짜 내림차순 측정 행에서 최근 등장 순서대로 중복 없는 환자 id를 limit개까지 추출
+export function firstDistinctPatientIds(rows, limit) {
+  const seen = new Set();
+  const ids = [];
+  for (const r of rows || []) {
+    if (!seen.has(r.patient_id)) {
+      seen.add(r.patient_id);
+      ids.push(r.patient_id);
+      if (ids.length >= limit) break;
+    }
+  }
+  return ids;
+}
+
+// 배치 조회한 행들을 patient_id별로 묶는다 (행 순서 보존)
+export function groupByPatientId(rows) {
+  const grouped = {};
+  for (const r of rows || []) {
+    (grouped[r.patient_id] ||= []).push(r);
+  }
+  return grouped;
+}
+
 export async function fetchPatientFull(patientRow) {
   const [{ data: measurements }, { data: treatments }] = await Promise.all([
     supabase.from('measurements').select('*').eq('patient_id', patientRow.id).order('date'),
@@ -58,9 +81,10 @@ export async function fetchPatientFull(patientRow) {
 }
 
 export async function logAudit(action, entityType, entityId, details = {}) {
-  const { data: { user } } = await supabase.auth.getUser();
+  // getUser()는 서버 왕복이라 모든 CRUD에 ~400ms를 더한다. 로컬 세션이면 충분.
+  const { data: { session } } = await supabase.auth.getSession();
   await supabase.from('audit_log').insert({
-    user_id: user?.id,
+    user_id: session?.user?.id,
     action,
     entity_type: entityType,
     entity_id: entityId,

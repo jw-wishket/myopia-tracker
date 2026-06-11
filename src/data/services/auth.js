@@ -31,7 +31,10 @@ export async function logout() {
 }
 
 export async function getCurrentUser() {
-  const { data: { user } } = await supabase.auth.getUser();
+  // getUser()는 매번 서버 왕복(~400ms). 로컬 세션을 읽고, 토큰 검증은
+  // 바로 이어지는 profiles 조회(RLS)가 대신한다 — 무효 토큰이면 profile이 null.
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
   if (!user) return null;
 
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
@@ -52,7 +55,8 @@ export async function changePassword(newPassword) {
 }
 
 export async function updateProfile(updates) {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
   if (!user) return false;
   const dbUpdates = {};
   if (updates.name !== undefined) dbUpdates.name = updates.name;
