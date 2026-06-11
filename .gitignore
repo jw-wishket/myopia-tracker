@@ -8,3 +8,4 @@ dist
 
 # Windows bash crash dumps
 *.stackdump
+.playwright-mcp/
