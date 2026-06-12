@@ -1,6 +1,6 @@
 import { renderNavbar } from '../components/navbar.js';
 import { renderBottomNav } from '../components/bottomNav.js';
-import { renderSidebar } from '../components/sidebar.js';
+import { renderSidebar, renderSidebarItems, sidebarLabelText } from '../components/sidebar.js';
 import { renderStatsCard } from '../components/statsCard.js';
 import { renderTreatmentTags } from '../components/treatmentTags.js';
 import { renderMeasurementTable } from '../components/measurementTable.js';
@@ -347,10 +347,8 @@ function bindTableDeleteHandlers(tableContainer, patient, container) {
   });
 }
 
-function bindDoctorEvents(container, user, patients, selectedPatient) {
-  const rerender = () => renderDoctorScreen(container);
-
-  // Sidebar patient selection
+// 사이드바 환자 버튼 클릭 바인딩 — 검색으로 목록이 교체될 때마다 다시 호출된다
+function bindSidebarPatientClicks(container) {
   container.querySelectorAll('.sidebar-patient').forEach(btn => {
     btn.addEventListener('click', async () => {
       const patient = await getPatientById(btn.dataset.id);
@@ -360,6 +358,13 @@ function bindDoctorEvents(container, user, patients, selectedPatient) {
       }
     });
   });
+}
+
+function bindDoctorEvents(container, user, patients, selectedPatient) {
+  const rerender = () => renderDoctorScreen(container);
+
+  // Sidebar patient selection
+  bindSidebarPatientClicks(container);
 
   // Mobile patient chips
   container.querySelectorAll('.mobile-patient-chip').forEach(btn => {
@@ -372,17 +377,38 @@ function bindDoctorEvents(container, user, patients, selectedPatient) {
     });
   });
 
-  // Sidebar search with debounce
+  // Sidebar search with debounce — 화면 전체가 아닌 목록 영역만 갱신 (깜빡임·차트 재생성 방지)
   let searchTimeout;
   const searchInput = container.querySelector('#sidebarSearch');
   if (searchInput) {
-    searchInput.addEventListener('input', (e) => {
+    searchInput.addEventListener('input', () => {
       clearTimeout(searchTimeout);
       searchTimeout = setTimeout(async () => {
-        currentSearchQuery = e.target.value;
-        await renderDoctorScreen(container);
-        const newInput = container.querySelector('#sidebarSearch');
-        if (newInput) { newInput.focus(); newInput.selectionStart = newInput.selectionEnd = newInput.value.length; }
+        const query = searchInput.value.trim();
+        currentSearchQuery = searchInput.value;
+
+        let list, label;
+        if (query) {
+          list = await searchPatientsLight(query);
+          label = sidebarLabelText({ isSearching: true, count: list.length });
+        } else {
+          const [recent, total] = await Promise.all([
+            getRecentPatients(undefined, 50),
+            getPatientCount(),
+          ]);
+          list = pinSelectedToList(recent, getState().currentPatient);
+          label = sidebarLabelText({ isSearching: false, totalCount: total });
+        }
+
+        // 응답 대기 중 입력이 더 진행됐으면 이 결과는 폐기 (최신 입력의 결과만 반영)
+        if (searchInput.value.trim() !== query) return;
+
+        const listEl = container.querySelector('#sidebarPatientList');
+        const labelEl = container.querySelector('#sidebarListLabel');
+        if (!listEl) return;
+        listEl.innerHTML = renderSidebarItems(list, getState().currentPatient?.id);
+        if (labelEl) labelEl.textContent = label;
+        bindSidebarPatientClicks(container);
       }, 300);
     });
   }

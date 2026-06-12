@@ -1,9 +1,11 @@
 import { progressLabel, escapeHtml } from '../utils.js';
 
-export function renderSidebar(patients, selectedId, options = {}) {
-  const { searchQuery = '', isSearching = false, totalCount = 0 } = options;
-
-  const items = patients.map(p => {
+// 환자 목록 영역만 따로 렌더링 — 검색 시 전체 리렌더 없이 이 부분만 교체한다
+export function renderSidebarItems(patients, selectedId) {
+  if (!patients || patients.length === 0) {
+    return '<p class="text-center text-sm text-slate-400 py-4">환자가 없습니다</p>';
+  }
+  return patients.map(p => {
     const prog = p.records?.length >= 2 ? progressLabel(p.records) : null;
     const isRapid = prog?.cls?.includes('red');
     return `
@@ -16,10 +18,19 @@ export function renderSidebar(patients, selectedId, options = {}) {
     </button>
   `;
   }).join('');
+}
 
-  const label = isSearching
-    ? `<span class="text-xs text-slate-400 px-3 py-1">${patients.length}건 검색됨</span>`
-    : `<span class="text-xs text-slate-400 px-3 py-1">최근 환자${totalCount > 0 ? ` (전체 ${totalCount}명)` : ''}</span>`;
+export function sidebarLabelText({ isSearching, count = 0, totalCount = 0 }) {
+  return isSearching
+    ? `${count}건 검색됨`
+    : `최근 환자${totalCount > 0 ? ` (전체 ${totalCount}명)` : ''}`;
+}
+
+export function renderSidebar(patients, selectedId, options = {}) {
+  const { searchQuery = '', isSearching = false, totalCount = 0 } = options;
+
+  const items = renderSidebarItems(patients, selectedId);
+  const label = `<span id="sidebarListLabel" class="text-xs text-slate-400 px-3 py-1">${sidebarLabelText({ isSearching, count: patients.length, totalCount })}</span>`;
 
   return `
     <div class="hidden md:flex flex-col w-60 border-r border-slate-200 bg-white h-[calc(100vh-56px)] sticky top-14">
@@ -27,8 +38,8 @@ export function renderSidebar(patients, selectedId, options = {}) {
         <input type="text" id="sidebarSearch" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-primary-400 transition" placeholder="환자 검색 (이름/관리번호)..." value="${escapeHtml(searchQuery)}">
       </div>
       ${label}
-      <div class="flex-1 overflow-y-auto px-2 space-y-0.5">
-        ${items || '<p class="text-center text-sm text-slate-400 py-4">환자가 없습니다</p>'}
+      <div id="sidebarPatientList" class="flex-1 overflow-y-auto px-2 space-y-0.5">
+        ${items}
       </div>
       <div class="p-3 border-t border-slate-200 space-y-2">
         <button id="sidebarAddBtn" class="w-full py-2 text-sm font-medium text-primary-600 border border-dashed border-primary-300 rounded-lg hover:bg-primary-50 transition-colors flex items-center justify-center gap-1">
