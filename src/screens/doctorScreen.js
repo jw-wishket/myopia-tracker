@@ -85,9 +85,12 @@ export async function renderDoctorScreen(container) {
     sidebarPatients = pinSelectedToList(sidebarPatients, selectedPatient);
   }
 
+  // 추적 검사 알림 배너 옵션 (설정 모달에서 토글, 미설정 시 기본 켜짐)
+  const overdueAlertEnabled = localStorage.getItem('showOverdueAlert') !== 'false';
+
   const [notes, overdue] = await Promise.all([
     selectedPatient ? getNotes(selectedPatient.id) : Promise.resolve([]),
-    getOverduePatients().catch(() => []),
+    overdueAlertEnabled ? getOverduePatients().catch(() => []) : Promise.resolve([]),
   ]);
   currentNotes = notes;
   const overduePatients = overdue;

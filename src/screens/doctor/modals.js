@@ -337,6 +337,14 @@ export function openSettingsModal(container, onComplete) {
         </div>
       </div>
       <div class="p-4 bg-slate-50 rounded-xl">
+        <h4 class="text-sm font-semibold text-slate-700 mb-1">화면 설정</h4>
+        <label class="flex items-center justify-between gap-3 cursor-pointer mt-3">
+          <span class="text-sm text-slate-600">추적 검사 필요 환자 알림 배너</span>
+          <input type="checkbox" id="settingsOverdueAlert" class="w-4 h-4 accent-blue-600" ${localStorage.getItem('showOverdueAlert') !== 'false' ? 'checked' : ''}>
+        </label>
+        <p class="text-xs text-slate-400 mt-1.5">다음 방문 예정일이 지난 환자를 대시보드 상단에 표시합니다.</p>
+      </div>
+      <div class="p-4 bg-slate-50 rounded-xl">
         <h4 class="text-sm font-semibold text-slate-700 mb-1">비밀번호 변경</h4>
         <p class="text-xs text-slate-500 mb-3">새 비밀번호를 입력하세요 (8자 이상).</p>
         <div class="space-y-2">
@@ -361,6 +369,12 @@ export function openSettingsModal(container, onComplete) {
   `);
 
   modal.element.querySelector('#settingsCloseBtn').addEventListener('click', modal.close);
+
+  // 추적 검사 알림 배너 토글 — 변경 즉시 저장하고 화면에 반영
+  modal.element.querySelector('#settingsOverdueAlert').addEventListener('change', (e) => {
+    localStorage.setItem('showOverdueAlert', e.target.checked ? 'true' : 'false');
+    if (onComplete) onComplete();
+  });
 
   // Name change
   modal.element.querySelector('#settingsSaveNameBtn').addEventListener('click', async () => {
