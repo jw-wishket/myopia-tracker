@@ -46,7 +46,8 @@ export function renderSidebar(patients, selectedId, options = {}) {
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
           새 환자
         </button>
-        <button id="exportAllBtn" class="w-full py-2 text-sm text-slate-500 hover:text-primary-600 transition-colors">전체 내보내기</button>
+        <!-- 전체 내보내기는 요청에 따라 숨김 처리 (기능·바인딩은 유지, hidden 제거로 복원) -->
+        <button id="exportAllBtn" class="hidden w-full py-2 text-sm text-slate-500 hover:text-primary-600 transition-colors">전체 내보내기</button>
         <p class="text-center text-[10px] text-slate-300 mt-1">? 키: 단축키 도움말</p>
       </div>
     </div>
