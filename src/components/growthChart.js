@@ -12,19 +12,29 @@ import { computeChartModel } from '../myopiaModel.js';
 import { renderRefractionPanel, initRefractionPanel, destroyRefractionPanel } from './refractionPanel.js';
 import { renderRiskGauge, initRiskGauge } from './riskGauge.js';
 
+// 워터마크 로고(엠블럼) — 모듈 로드 시 미리 적재
+const watermarkImg = new Image();
+watermarkImg.src = '/oasis-emblem.png';
+
 const watermarkPlugin = {
   id: 'watermark',
   afterDraw(chart) {
+    if (!watermarkImg.complete || !watermarkImg.naturalWidth) {
+      // 아직 로드 전이면 로드 완료 후 한 번 다시 그린다
+      if (!watermarkImg.__redrawBound) {
+        watermarkImg.__redrawBound = true;
+        watermarkImg.addEventListener('load', () => { try { chart.draw(); } catch { /* 차트가 이미 파기됨 */ } }, { once: true });
+      }
+      return;
+    }
+    const { left, right, top, bottom } = chart.chartArea;
+    const size = Math.min(right - left, bottom - top) * 0.42;
+    const w = size;
+    const h = size * (watermarkImg.naturalHeight / watermarkImg.naturalWidth);
     const ctx = chart.ctx;
     ctx.save();
     ctx.globalAlpha = 0.06;
-    ctx.font = 'bold 48px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#2563eb';
-    const cx = (chart.chartArea.left + chart.chartArea.right) / 2;
-    const cy = (chart.chartArea.top + chart.chartArea.bottom) / 2;
-    ctx.fillText('근시관리 트래커', cx, cy);
+    ctx.drawImage(watermarkImg, (left + right) / 2 - w / 2, (top + bottom) / 2 - h / 2, w, h);
     ctx.restore();
   },
 };

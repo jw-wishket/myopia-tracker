@@ -3,9 +3,10 @@ import { navigate } from '../router.js';
 import { logout } from '../data/dataService.js';
 import { setState } from '../state.js';
 import { escapeHtml } from '../utils.js';
+import { CLINIC_NAME } from '../constants.js';
 
 export function renderNavbar(options = {}) {
-  const { title = '근시관리 트래커', subtitle = '', showBack = false, backTarget = 'login', user = null, onProfile = null } = options;
+  const { title = CLINIC_NAME, subtitle = '', showBack = false, backTarget = 'login', user = null, onProfile = null } = options;
 
   const adminLink = user && user.isAdmin ? `
     <button id="navAdminBtn" class="hidden sm:inline-flex text-xs font-medium text-primary-600 border border-primary-200 rounded-lg px-3 py-1.5 hover:bg-primary-50 transition-colors">관리</button>
@@ -48,8 +49,8 @@ export function renderNavbar(options = {}) {
         <div class="flex items-center">
           ${backBtn}
           <div class="flex items-center gap-2 cursor-pointer" id="navLogo">
-            <svg class="w-7 h-7 text-primary-600" viewBox="0 0 32 32" fill="currentColor"><circle cx="16" cy="16" r="14"/><circle cx="16" cy="16" r="6" fill="white"/><circle cx="16" cy="16" r="3" fill="currentColor"/></svg>
-            <span class="font-semibold text-slate-800 tracking-tight">${title}</span>
+            <img src="/oasis-emblem.png" alt="" class="w-7 h-7 object-contain" />
+            <span class="font-semibold text-slate-800 tracking-tight">${escapeHtml(title)}</span>
             ${subtitle ? `<span class="text-xs text-slate-400 hidden sm:inline">· ${subtitle}</span>` : ''}
           </div>
         </div>

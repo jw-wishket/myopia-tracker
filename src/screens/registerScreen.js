@@ -6,7 +6,7 @@ import { pendingRegistration } from './loginScreen.js';
 let selectedRole = 'doctor';
 
 export async function renderRegisterScreen(container) {
-  const nav = renderNavbar({ title: '근시관리 트래커', subtitle: '회원가입', showBack: true, backTarget: 'login' });
+  const nav = renderNavbar({ subtitle: '회원가입', showBack: true, backTarget: 'login' });
 
   container.innerHTML = `
     ${nav.html}

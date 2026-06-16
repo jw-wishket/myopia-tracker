@@ -7,15 +7,14 @@ import { routeForUser } from '../routing.js';
 export let pendingRegistration = { email: '', password: '' };
 
 export async function renderLoginScreen(container) {
-  const nav = renderNavbar({ title: '근시관리 트래커' });
+  const nav = renderNavbar();
 
   container.innerHTML = `
     ${nav.html}
     <div class="min-h-[calc(100vh-56px)] flex items-center justify-center p-4">
       <div class="w-full max-w-md">
         <div class="text-center mb-8">
-          <svg class="w-12 h-12 mx-auto text-primary-600 mb-3" viewBox="0 0 32 32" fill="currentColor"><circle cx="16" cy="16" r="14"/><circle cx="16" cy="16" r="6" fill="white"/><circle cx="16" cy="16" r="3" fill="currentColor"/></svg>
-          <h1 class="text-2xl font-semibold text-slate-800 tracking-tight">근시관리 트래커</h1>
+          <img src="/oasis-logo-vertical.png" alt="오아시스 안과" class="w-44 h-auto mx-auto mb-3" />
           <p class="text-sm text-slate-500 mt-1">근시 관리 기록을 확인하세요</p>
         </div>
 

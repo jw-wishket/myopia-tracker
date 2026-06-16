@@ -1,3 +1,7 @@
+// 브랜드 — 화면 타이틀·리포트·워터마크 등에서 공통 사용
+export const CLINIC_NAME = '오아시스 안과';
+export const CLINIC_NAME_EN = 'OASIS EYE CLINIC';
+
 export const PERCENTILE_DATA = {
   male: [
     {Age:4,P3:21.26,P5:21.41,P10:21.63,P25:21.99,P50:22.39,P75:22.78,P90:23.13,P95:23.33},

@@ -22,7 +22,7 @@ export async function renderAdminScreen(container) {
     getStats(), getUsers(), getTreatmentTypes(), getSetting('projection_mode'),
   ]);
 
-  const nav = renderNavbar({ title: '근시관리 트래커', subtitle: '관리자', user, showBack: true, backTarget: 'doctor' });
+  const nav = renderNavbar({ subtitle: '관리자', user, showBack: true, backTarget: 'doctor' });
 
   container.innerHTML = `
     ${nav.html}

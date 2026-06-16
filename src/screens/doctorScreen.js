@@ -41,7 +41,7 @@ export async function renderDoctorScreen(container) {
   // Show loading state on first render
   if (!isLoadingPatients) {
     isLoadingPatients = true;
-    const nav = renderNavbar({ title: '근시관리 트래커', subtitle: '', user });
+    const nav = renderNavbar({ subtitle: '', user });
     container.innerHTML = `
       ${nav.html}
       <div class="flex">
@@ -96,7 +96,7 @@ export async function renderDoctorScreen(container) {
   const overduePatients = overdue;
 
   const nav = renderNavbar({
-    title: '근시관리 트래커', subtitle: '', user,
+    subtitle: '', user,
     onProfile: () => openSettingsModal(container, () => renderDoctorScreen(container)),
   });
   const sidebar = renderSidebar(sidebarPatients, selectedPatient?.id, { searchQuery: currentSearchQuery, isSearching, totalCount });

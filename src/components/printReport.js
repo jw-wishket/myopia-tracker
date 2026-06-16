@@ -1,5 +1,5 @@
 import { formatDate, calcAge, escapeHtml } from '../utils.js';
-import { OD_COLOR, OS_COLOR } from '../constants.js';
+import { OD_COLOR, OS_COLOR, CLINIC_NAME, CLINIC_NAME_EN } from '../constants.js';
 
 export function openPrintReport(patient, chartImage) {
   const age = calcAge(patient.birthDate, new Date());
@@ -11,19 +11,20 @@ export function openPrintReport(patient, chartImage) {
     <html lang="ko">
     <head>
       <meta charset="UTF-8">
-      <title>${escapeHtml(patient.name)} - 근시관리 리포트</title>
+      <title>${escapeHtml(patient.name)} - ${CLINIC_NAME} 리포트</title>
       <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Noto Sans KR', sans-serif; padding: 40px; color: #1e293b; font-size: 12px; line-height: 1.6; }
-        .header { text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 16px; margin-bottom: 24px; }
-        .header h1 { font-size: 18px; color: #2563eb; }
+        .header { text-align: center; border-bottom: 2px solid #0f766e; padding-bottom: 16px; margin-bottom: 24px; }
+        .header img { height: 40px; width: auto; margin-bottom: 8px; }
+        .header h1 { font-size: 18px; color: #0f766e; }
         .header p { font-size: 11px; color: #64748b; }
         .patient-info { display: flex; justify-content: space-between; background: #f8fafc; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; }
         .patient-info div { }
         .patient-info .label { color: #64748b; font-size: 10px; }
         .patient-info .value { font-weight: 600; font-size: 13px; }
         .section { margin-bottom: 20px; }
-        .section h2 { font-size: 13px; font-weight: 600; color: #2563eb; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; margin-bottom: 10px; }
+        .section h2 { font-size: 13px; font-weight: 600; color: #0f766e; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; margin-bottom: 10px; }
         table { width: 100%; border-collapse: collapse; font-size: 11px; }
         th { background: #f1f5f9; padding: 6px 8px; text-align: center; font-weight: 600; color: #64748b; border: 1px solid #e2e8f0; }
         td { padding: 5px 8px; text-align: center; border: 1px solid #e2e8f0; }
@@ -49,8 +50,9 @@ export function openPrintReport(patient, chartImage) {
     <body>
       <div class="print-date">출력일: ${new Date().toLocaleDateString('ko-KR')}</div>
       <div class="header">
-        <h1>근시관리 트래커 - 환자 리포트</h1>
-        <p>Myopia Management Tracker - Patient Report</p>
+        <img src="${location.origin}/oasis-emblem.png" alt="">
+        <h1>${CLINIC_NAME} - 환자 리포트</h1>
+        <p>${CLINIC_NAME_EN} - Patient Report</p>
       </div>
 
       <div class="patient-info">
@@ -123,7 +125,7 @@ export function openPrintReport(patient, chartImage) {
       ` : ''}
 
       <div class="footer">
-        근시관리 트래커 | myopia-tracker.vercel.app | 본 리포트는 참고용이며, 의료적 판단은 담당 의사와 상의하세요.
+        ${CLINIC_NAME} | myopia-tracker.vercel.app | 본 리포트는 참고용이며, 의료적 판단은 담당 의사와 상의하세요.
       </div>
     </body>
     </html>
